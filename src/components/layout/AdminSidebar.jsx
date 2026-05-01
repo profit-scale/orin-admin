@@ -1,0 +1,56 @@
+import { NavLink } from 'react-router-dom'
+import { LayoutDashboard, Building2, Users } from 'lucide-react'
+
+const navItems = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/companies', label: 'Companies', icon: Building2 },
+  { to: '/staff', label: 'Staff', icon: Users },
+]
+
+export default function AdminSidebar() {
+  return (
+    <aside className="w-60 shrink-0 border-r border-slate-800/60 bg-slate-950/40 backdrop-blur flex flex-col">
+      {/* Logo */}
+      <div className="px-6 pt-6 pb-8">
+        <div className="flex flex-col">
+          <span className="text-xl font-semibold tracking-tight bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
+            ORIN
+          </span>
+          <span className="mt-0.5 text-[10px] tracking-[0.3em] text-indigo-400/80 font-medium">
+            ADMIN
+          </span>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 space-y-1">
+        {navItems.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              [
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition',
+                isActive
+                  ? 'bg-indigo-500/15 text-indigo-200 border border-indigo-500/30'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent',
+              ].join(' ')
+            }
+          >
+            <Icon className="w-4 h-4" />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-slate-800/60">
+        <p className="text-[10px] text-slate-600 leading-relaxed">
+          Internal portal · v0.1<br />
+          admin.orinsuite.com
+        </p>
+      </div>
+    </aside>
+  )
+}

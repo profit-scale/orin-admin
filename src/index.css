@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dark indigo/violet admin palette — distinct from the customer app */
+  --color-bg-primary: #020617;       /* slate-950 */
+  --color-bg-secondary: #0F172A;     /* slate-900 */
+  --color-bg-elevated: #1E1B4B;      /* indigo-950 */
+
+  --color-surface: rgba(30, 27, 75, 0.4);
+  --color-surface-hover: rgba(67, 56, 202, 0.25);
+  --color-surface-active: rgba(99, 102, 241, 0.35);
+
+  --color-text-primary: #F1F5F9;     /* slate-100 */
+  --color-text-secondary: #94A3B8;   /* slate-400 */
+  --color-text-tertiary: #64748B;    /* slate-500 */
+
+  --color-accent: #818CF8;           /* indigo-400 */
+  --color-accent-hover: #A78BFA;     /* violet-400 */
+  --color-accent-light: #4338CA;     /* indigo-700 */
+  --color-accent-muted: rgba(129, 140, 248, 0.12);
+
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-danger: #F87171;
+  --color-info: #60A5FA;
+
+  --color-border: rgba(148, 163, 184, 0.1);
+  --color-border-strong: rgba(148, 163, 184, 0.2);
+
+  --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Subtle radial gradient backdrop — the "internal portal" vibe */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(139, 92, 246, 0.14) 0%, transparent 60%);
+}
+
+/* Scrollbar tweaks for dark theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
