@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, CreditCard } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/companies', label: 'Companies', icon: Building2 },
   { to: '/staff', label: 'Staff', icon: Users },
+  { to: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
 export default function AdminSidebar() {
