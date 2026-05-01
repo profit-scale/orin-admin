@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import { isConfigured } from './services/supabase'
 import AdminGate from './components/auth/AdminGate'
 import AdminLoginPage from './components/auth/AdminLoginPage'
 import AdminShell from './components/layout/AdminShell'
@@ -13,8 +14,46 @@ import AI from './pages/AI'
 import AIUsage from './pages/AIUsage'
 import AdminAuthCallback from './pages/AdminAuthCallback'
 
+// Shown when VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY are missing — most
+// commonly on a fresh Netlify deploy where the env vars haven't been set.
+// Replaces the previous behaviour of throwing inside createClient and
+// rendering nothing (the famous "blue screen of nothing").
+function ConfigRequiredScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
+      <div className="max-w-lg w-full rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur p-8 shadow-2xl">
+        <div className="flex items-center gap-2 text-amber-300 text-sm font-semibold mb-3">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          Setup required
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Orin Admin needs a Supabase URL + key</h1>
+        <p className="text-slate-300 mb-5 leading-relaxed">
+          The build is up but the environment variables aren&apos;t set, so the app
+          can&apos;t talk to the database yet.
+        </p>
+        <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 mb-5">
+          <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Add these in Netlify</div>
+          <div className="space-y-2 font-mono text-[13px]">
+            <div><span className="text-violet-300">VITE_SUPABASE_URL</span> <span className="text-slate-500">=</span> https://&lt;project-ref&gt;.supabase.co</div>
+            <div><span className="text-violet-300">VITE_SUPABASE_ANON_KEY</span> <span className="text-slate-500">=</span> &lt;anon public key&gt;</div>
+          </div>
+        </div>
+        <ol className="text-sm text-slate-300 space-y-2 list-decimal list-inside">
+          <li>Netlify dashboard → this site → <span className="text-slate-100 font-medium">Site settings</span> → <span className="text-slate-100 font-medium">Environment variables</span></li>
+          <li>Add the two variables above (values from <a className="text-violet-400 hover:underline" href="https://supabase.com/dashboard/project/_/settings/api" target="_blank" rel="noreferrer">Supabase dashboard → Settings → API</a>)</li>
+          <li>Trigger a redeploy: <span className="text-slate-100 font-medium">Deploys → Trigger deploy → Clear cache and deploy site</span></li>
+        </ol>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  // Call hooks unconditionally to satisfy the rules-of-hooks lint, then
+  // early-return on the config gate. `isConfigured` is a module-level
+  // constant so this branch resolves identically every render.
   const auth = useAuth()
+  if (!isConfigured) return <ConfigRequiredScreen />
 
   return (
     <BrowserRouter>
