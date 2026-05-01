@@ -8,6 +8,7 @@ import Companies from './pages/Companies'
 import CompanyDetail from './pages/CompanyDetail'
 import Staff from './pages/Staff'
 import Billing from './pages/Billing'
+import Perf from './pages/Perf'
 import AdminAuthCallback from './pages/AdminAuthCallback'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
                   <Route path="/companies/:id" element={<CompanyDetail />} />
                   <Route path="/staff" element={<Staff />} />
                   <Route path="/billing" element={<Billing />} />
+                  <Route path="/perf" element={<Perf />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminShell>
