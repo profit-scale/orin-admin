@@ -7,17 +7,13 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
   ExternalLink,
   FileText,
   ListChecks,
-  ReceiptText,
   Search,
   Settings,
-  Shield,
   StickyNote,
   Trash2,
-  Users,
   UserCircle2,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
@@ -26,6 +22,7 @@ import Modal from '../components/ui/Modal'
 import RoleBadge from '../components/admin/RoleBadge'
 import StatusBadge from '../components/admin/StatusBadge'
 import ImpersonateButton from '../components/admin/ImpersonateButton'
+import UsageTab from '../components/company/UsageTab'
 
 const FN_NOT_FOUND_CODES = new Set(['42883', 'PGRST202'])
 const APP_URL = 'https://app.orinsuite.com'
@@ -91,20 +88,6 @@ function PlanBadge({ plan, status }) {
   )
 }
 
-function StatTile({ icon: Icon, label, value, accent }) {
-  return (
-    <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] uppercase tracking-wider text-slate-500">{label}</span>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div className="text-2xl font-semibold text-slate-100 tabular-nums">{value}</div>
-    </div>
-  )
-}
-
 function Card({ title, action, children, className = '' }) {
   return (
     <div className={`rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur ${className}`}>
@@ -123,11 +106,21 @@ function Card({ title, action, children, className = '' }) {
 
 export default function CompanyDetail() {
   const { id } = useParams()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('usage')
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [partial, setPartial] = useState(false)
+
+  // Allow child tabs (Usage) to request a tab jump via custom event.
+  useEffect(() => {
+    const onJump = (e) => {
+      const target = e?.detail
+      if (typeof target === 'string') setActiveTab(target)
+    }
+    window.addEventListener('admin-tab-jump', onJump)
+    return () => window.removeEventListener('admin-tab-jump', onJump)
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -178,13 +171,12 @@ export default function CompanyDetail() {
 
   const org    = detail?.organization || null
   const sub    = detail?.subscription || null
-  const usage  = detail?.usage || {}
   const members = detail?.members || []
   const invoices = detail?.recent_invoices || []
   const adminActions = detail?.recent_admin_actions || []
 
   const tabs = useMemo(() => ([
-    { id: 'overview', label: 'Overview' },
+    { id: 'usage',    label: 'Usage' },
     { id: 'members',  label: 'Members',  count: members.length || undefined },
     { id: 'activity', label: 'Activity' },
     { id: 'billing',  label: 'Billing',  count: invoices.length || undefined },
@@ -257,8 +249,8 @@ export default function CompanyDetail() {
       </div>
 
       <div className="mt-6">
-        {activeTab === 'overview' && (
-          <OverviewTab org={org} sub={sub} usage={usage} members={members} adminActions={adminActions} />
+        {activeTab === 'usage' && (
+          <UsageTab orgId={id} fallbackOrg={org} fallbackSub={sub} members={members} />
         )}
         {activeTab === 'members' && (
           <MembersTab members={members} orgId={id} />
@@ -365,97 +357,6 @@ function CompanyHeader({ org, sub, members }) {
           table for free-form CS notes per organization.
         </p>
       </Modal>
-    </div>
-  )
-}
-
-// ---------- overview tab ----------
-
-function OverviewTab({ org, sub, usage, members, adminActions }) {
-  const owner = members.find((m) => m.role === 'owner')
-  const lastActivity = useMemo(() => {
-    const candidates = [
-      usage?.last_deal_updated,
-      usage?.last_contact_updated,
-      org?.updated_at,
-    ].filter(Boolean).map((d) => new Date(d).getTime())
-    if (!candidates.length) return null
-    return new Date(Math.max(...candidates)).toISOString()
-  }, [org, usage])
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile icon={Users} label="Members" value={formatNumber(usage?.members_count ?? members.length)} accent="bg-indigo-500/20 text-indigo-300" />
-        <StatTile icon={ClipboardList} label="Deals" value={formatNumber(usage?.deals_count)} accent="bg-violet-500/20 text-violet-300" />
-        <StatTile icon={UserCircle2} label="Contacts" value={formatNumber(usage?.contacts_count)} accent="bg-emerald-500/20 text-emerald-300" />
-        <StatTile icon={ReceiptText} label="Invoices" value={formatNumber(usage?.invoices_count)} accent="bg-amber-500/20 text-amber-300" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card title="Quick stats" className="lg:col-span-1">
-          <dl className="text-xs space-y-2.5">
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Created</dt>
-              <dd className="text-slate-200">{formatDate(org?.created_at)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Last activity</dt>
-              <dd className="text-slate-200">{formatRelative(lastActivity)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Owner</dt>
-              <dd className="text-slate-200 truncate text-right">
-                {owner?.email || owner?.full_name || (owner?.user_id ? owner.user_id.slice(0, 8) + '…' : '—')}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Slug</dt>
-              <dd className="text-slate-200 font-mono">{org?.slug || '—'}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Plan</dt>
-              <dd className="text-slate-200">{sub?.plan_label || sub?.plan || '—'}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Trial ends</dt>
-              <dd className="text-slate-200">{formatDate(sub?.trial_ends_at)}</dd>
-            </div>
-          </dl>
-        </Card>
-
-        <Card title="Recent activity" className="lg:col-span-2">
-          {!adminActions.length ? (
-            <p className="text-xs text-slate-500">No admin actions recorded yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-800/40 -mx-1">
-              {adminActions.slice(0, 10).map((a) => (
-                <li key={a.id} className="px-1 py-2.5 flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                    <Shield className="w-3.5 h-3.5 text-indigo-300" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs text-slate-200 flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{a.super_admin_email || a.super_admin_id?.slice(0, 8)}</span>
-                      <span className="text-slate-500">{a.action}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">{formatDate(a.created_at, { withTime: true })}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      <Card title="Notes">
-        <div className="text-xs text-slate-500">
-          <p className="mb-1">
-            <code className="px-1 bg-slate-800 rounded text-slate-400">TODO</code>{' '}
-            Per-org notes table not yet implemented. Once available, super admins will be able to record CS notes here.
-          </p>
-        </div>
-      </Card>
     </div>
   )
 }
