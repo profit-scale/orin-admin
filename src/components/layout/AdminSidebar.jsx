@@ -1,12 +1,31 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, CreditCard, Gauge } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  CreditCard,
+  Gauge,
+  Sparkles,
+  BarChart3,
+} from 'lucide-react'
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/companies', label: 'Companies', icon: Building2 },
-  { to: '/staff', label: 'Staff', icon: Users },
-  { to: '/billing', label: 'Billing', icon: CreditCard },
-  { to: '/perf', label: 'Perf', icon: Gauge },
+const navSections = [
+  {
+    items: [
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+      { to: '/companies', label: 'Companies', icon: Building2 },
+      { to: '/staff', label: 'Staff', icon: Users },
+      { to: '/billing', label: 'Billing', icon: CreditCard },
+      { to: '/perf', label: 'Perf', icon: Gauge },
+    ],
+  },
+  {
+    label: 'AI',
+    items: [
+      { to: '/ai',       label: 'AI Settings', icon: Sparkles },
+      { to: '/ai/usage', label: 'AI Usage',    icon: BarChart3 },
+    ],
+  },
 ]
 
 export default function AdminSidebar() {
@@ -25,24 +44,33 @@ export default function AdminSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1">
-        {navItems.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition',
-                isActive
-                  ? 'bg-indigo-500/15 text-indigo-200 border border-indigo-500/30'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent',
-              ].join(' ')
-            }
-          >
-            <Icon className="w-4 h-4" />
-            <span>{label}</span>
-          </NavLink>
+      <nav className="flex-1 px-3 space-y-4">
+        {navSections.map((section, sIdx) => (
+          <div key={sIdx} className="space-y-1">
+            {section.label && (
+              <div className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-[0.18em] text-slate-600 font-medium">
+                {section.label}
+              </div>
+            )}
+            {section.items.map(({ to, label, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition',
+                    isActive
+                      ? 'bg-indigo-500/15 text-indigo-200 border border-indigo-500/30'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent',
+                  ].join(' ')
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

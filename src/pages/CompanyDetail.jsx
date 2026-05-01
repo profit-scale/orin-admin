@@ -188,6 +188,7 @@ export default function CompanyDetail() {
     { id: 'members',  label: 'Members',  count: members.length || undefined },
     { id: 'activity', label: 'Activity' },
     { id: 'billing',  label: 'Billing',  count: invoices.length || undefined },
+    { id: 'ai',       label: 'AI' },
     { id: 'settings', label: 'Settings' },
   ]), [members.length, invoices.length])
 
@@ -267,6 +268,9 @@ export default function CompanyDetail() {
         )}
         {activeTab === 'billing' && (
           <BillingTab orgId={id} sub={sub} invoices={invoices} onRefresh={load} />
+        )}
+        {activeTab === 'ai' && (
+          <AITab orgId={id} />
         )}
         {activeTab === 'settings' && (
           <SettingsTab org={org} orgId={id} onRefresh={load} />
@@ -1040,6 +1044,459 @@ function OverridePlanModal({ open, onClose, sub, orgId, onSaved }) {
         </div>
       )}
     </Modal>
+  )
+}
+
+// ---------- ai tab ----------
+
+function AITab({ orgId }) {
+  const [quota, setQuota] = useState(null)
+  const [recentCalls, setRecentCalls] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [recentLoading, setRecentLoading] = useState(true)
+  const [missingMigrations, setMissingMigrations] = useState(false)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saveOk, setSaveOk] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+
+  // Editable form state for the limits override.
+  const [form, setForm] = useState({
+    monthly_call_limit: '',
+    monthly_token_limit: '',
+    monthly_cost_limit_cents: '',
+    allow_overage: false,
+    is_throttled: false,
+  })
+
+  const FN_NOT_FOUND_CODES = new Set(['42883', 'PGRST202'])
+
+  const loadQuota = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data, error: err } = await supabase
+        .from('org_ai_quotas')
+        .select('*')
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (err) {
+        if (err.code === '42P01' || /relation .* does not exist/i.test(err.message || '')) {
+          setMissingMigrations(true)
+          setQuota(null)
+        } else {
+          throw err
+        }
+      } else {
+        setQuota(data || null)
+        setForm({
+          monthly_call_limit:        data?.monthly_call_limit ?? '',
+          monthly_token_limit:       data?.monthly_token_limit ?? '',
+          monthly_cost_limit_cents:  data?.monthly_cost_limit_cents ?? '',
+          allow_overage:             !!data?.allow_overage,
+          is_throttled:              !!data?.is_throttled,
+        })
+      }
+    } catch (e) {
+      setError(e?.message || 'Failed to load AI quota')
+    } finally {
+      setLoading(false)
+    }
+  }, [orgId])
+
+  const loadRecent = useCallback(async () => {
+    setRecentLoading(true)
+    try {
+      const { data, error: err } = await supabase.rpc('admin_ai_org_recent_calls', {
+        p_org_id: orgId,
+        p_limit: 50,
+      })
+      if (err) {
+        const isMissing =
+          FN_NOT_FOUND_CODES.has(err.code) ||
+          /function .* does not exist/i.test(err.message || '')
+        if (isMissing) {
+          setMissingMigrations(true)
+        }
+        setRecentCalls([])
+      } else {
+        setRecentCalls(Array.isArray(data) ? data : [])
+      }
+    } finally {
+      setRecentLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId])
+
+  useEffect(() => {
+    loadQuota()
+    loadRecent()
+  }, [loadQuota, loadRecent])
+
+  function patch(p) {
+    setForm((prev) => ({ ...prev, ...p }))
+    setSaveOk(false)
+    setSaveError(null)
+  }
+
+  async function onSave() {
+    setSaving(true)
+    setSaveError(null)
+    setSaveOk(false)
+    try {
+      const payload = {
+        organization_id:          orgId,
+        monthly_call_limit:       form.monthly_call_limit === '' ? null : Number(form.monthly_call_limit),
+        monthly_token_limit:      form.monthly_token_limit === '' ? null : Number(form.monthly_token_limit),
+        monthly_cost_limit_cents: form.monthly_cost_limit_cents === '' ? null : Number(form.monthly_cost_limit_cents),
+        allow_overage:            !!form.allow_overage,
+        is_throttled:             !!form.is_throttled,
+      }
+      if (quota?.id) {
+        const { error: err } = await supabase
+          .from('org_ai_quotas')
+          .update(payload)
+          .eq('id', quota.id)
+        if (err) throw err
+      } else {
+        const { error: err } = await supabase
+          .from('org_ai_quotas')
+          .upsert(payload, { onConflict: 'organization_id' })
+        if (err) throw err
+      }
+
+      await supabase.rpc('log_admin_action', {
+        p_action: 'ai_quota_update',
+        p_target_org_id: orgId,
+        p_metadata: {
+          previous: {
+            monthly_call_limit:       quota?.monthly_call_limit,
+            monthly_token_limit:      quota?.monthly_token_limit,
+            monthly_cost_limit_cents: quota?.monthly_cost_limit_cents,
+            allow_overage:            quota?.allow_overage,
+            is_throttled:             quota?.is_throttled,
+          },
+          next: payload,
+        },
+      }).catch(() => {})
+
+      setSaveOk(true)
+      await loadQuota()
+    } catch (e) {
+      setSaveError(e?.message || 'Failed to save quota')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function onResetUsage() {
+    if (!window.confirm('Reset usage counters for this org? This zeroes calls/tokens/cost for the current period.')) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const { error: err } = await supabase.rpc('admin_ai_reset_org_usage', {
+        p_org_id: orgId,
+        p_reason: 'Admin-triggered reset from CompanyDetail',
+      })
+      if (err) throw err
+      await loadQuota()
+      await loadRecent()
+    } catch (e) {
+      setSaveError(e?.message || 'Failed to reset usage')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function onToggleThrottle() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const next = !quota?.is_throttled
+      if (quota?.id) {
+        const { error: err } = await supabase
+          .from('org_ai_quotas')
+          .update({ is_throttled: next })
+          .eq('id', quota.id)
+        if (err) throw err
+      } else {
+        const { error: err } = await supabase
+          .from('org_ai_quotas')
+          .upsert(
+            { organization_id: orgId, is_throttled: next },
+            { onConflict: 'organization_id' }
+          )
+        if (err) throw err
+      }
+      await supabase.rpc('log_admin_action', {
+        p_action: next ? 'ai_throttle_on' : 'ai_throttle_off',
+        p_target_org_id: orgId,
+      }).catch(() => {})
+      await loadQuota()
+    } catch (e) {
+      setSaveError(e?.message || 'Failed to toggle throttle')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ── derived values
+  const callsUsed   = quota?.calls_used_this_period ?? 0
+  const tokensUsed  = quota?.tokens_used_this_period ?? 0
+  const costUsed    = quota?.cost_cents_used_this_period ?? 0
+  const callLimit   = quota?.monthly_call_limit
+  const tokenLimit  = quota?.monthly_token_limit
+  const costLimit   = quota?.monthly_cost_limit_cents
+
+  const callPct  = callLimit  ? Math.min(100, (callsUsed  / callLimit)  * 100) : null
+  const costPct  = costLimit  ? Math.min(100, (costUsed   / costLimit)  * 100) : null
+  const tokenPct = tokenLimit ? Math.min(100, (tokensUsed / tokenLimit) * 100) : null
+
+  return (
+    <div className="space-y-6">
+      {missingMigrations && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="text-xs text-amber-200">
+            <strong className="text-amber-100">Migrations 083/084 not yet applied.</strong>{' '}
+            The <code className="px-1 bg-black/30 rounded">org_ai_quotas</code> table and{' '}
+            <code className="px-1 bg-black/30 rounded">admin_ai_org_recent_calls</code> RPC are missing.
+            Apply the AI control plane migrations to your Supabase project to enable this tab.
+          </div>
+        </div>
+      )}
+
+      <Card title="AI quota — current period">
+        {loading ? (
+          <p className="text-xs text-slate-500 text-center py-6">Loading quota…</p>
+        ) : (
+          <div className="space-y-5">
+            <UsageBar
+              label="Calls"
+              used={callsUsed}
+              limit={callLimit}
+              pct={callPct}
+              format={formatNumber}
+            />
+            <UsageBar
+              label="Tokens"
+              used={tokensUsed}
+              limit={tokenLimit}
+              pct={tokenPct}
+              format={formatNumber}
+            />
+            <UsageBar
+              label="Cost"
+              used={costUsed}
+              limit={costLimit}
+              pct={costPct}
+              format={formatCents}
+            />
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Quota controls"
+        action={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onResetUsage}
+              disabled={saving || loading || missingMigrations}
+              className="px-2.5 py-1 text-[11px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Reset usage
+            </button>
+            <button
+              type="button"
+              onClick={onToggleThrottle}
+              disabled={saving || loading || missingMigrations}
+              className={[
+                'px-2.5 py-1 text-[11px] rounded-lg border transition disabled:opacity-40 disabled:cursor-not-allowed',
+                quota?.is_throttled
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+                  : 'border-red-500/40 bg-red-500/10 text-red-200 hover:bg-red-500/20',
+              ].join(' ')}
+            >
+              {quota?.is_throttled ? 'Unthrottle' : 'Throttle now'}
+            </button>
+          </div>
+        }
+      >
+        {loading ? (
+          <p className="text-xs text-slate-500 text-center py-6">Loading…</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1">
+                  Monthly call limit
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.monthly_call_limit}
+                  onChange={(e) => patch({ monthly_call_limit: e.target.value })}
+                  placeholder="(plan default)"
+                  className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none tabular-nums"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1">
+                  Monthly token limit
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.monthly_token_limit}
+                  onChange={(e) => patch({ monthly_token_limit: e.target.value })}
+                  placeholder="(plan default)"
+                  className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none tabular-nums"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1">
+                  Monthly cost limit (cents)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.monthly_cost_limit_cents}
+                  onChange={(e) => patch({ monthly_cost_limit_cents: e.target.value })}
+                  placeholder="(plan default)"
+                  className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none tabular-nums"
+                />
+                <span className="block text-[11px] text-slate-600 mt-1">
+                  {form.monthly_cost_limit_cents
+                    ? formatCents(Number(form.monthly_cost_limit_cents))
+                    : 'plan default'}
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-6 pt-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.allow_overage}
+                  onChange={(e) => patch({ allow_overage: e.target.checked })}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-500 focus:ring-indigo-500/40"
+                />
+                <span className="text-sm text-slate-200">Allow overage</span>
+                <span className="text-[11px] text-slate-500">(don't auto-throttle when over limit)</span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              {saveError && (
+                <span className="text-xs text-red-300 inline-flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {saveError}
+                </span>
+              )}
+              {saveOk && !saveError && (
+                <span className="text-xs text-emerald-300">Saved.</span>
+              )}
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving || loading || missingMigrations}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving…' : 'Save quota'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card title="Recent AI calls (last 50)">
+        {recentLoading ? (
+          <p className="text-xs text-slate-500 text-center py-6">Loading calls…</p>
+        ) : recentCalls.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-6">
+            {missingMigrations ? 'AI usage tracking not yet available.' : 'No AI calls recorded yet for this org.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto -mx-5">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
+                  <th className="text-left font-medium px-5 py-2.5">When</th>
+                  <th className="text-left font-medium px-3 py-2.5">Surface</th>
+                  <th className="text-left font-medium px-3 py-2.5">Model</th>
+                  <th className="text-right font-medium px-3 py-2.5">Tokens</th>
+                  <th className="text-right font-medium px-3 py-2.5">Cost</th>
+                  <th className="text-left font-medium px-5 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentCalls.map((c) => (
+                  <tr key={c.id} className="border-b border-slate-800/40 last:border-0">
+                    <td className="px-5 py-2.5 text-slate-300 whitespace-nowrap">
+                      {formatDate(c.created_at, { withTime: true })}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-200 font-mono text-xs">{c.surface || '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-200 font-mono text-xs">
+                      {c.provider ? `${c.provider}/${c.model}` : (c.model || '—')}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-300">
+                      {formatNumber(c.total_tokens)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-200">
+                      {formatCents(c.cost_cents)}
+                    </td>
+                    <td className="px-5 py-2.5">
+                      {c.status === 'error' || c.error ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-red-500/15 border border-red-500/30 text-red-200" title={c.error || ''}>
+                          error
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-200">
+                          {c.status || 'ok'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function UsageBar({ label, used, limit, pct, format }) {
+  const fmt = format || ((v) => v)
+  const pctTone =
+    pct == null    ? 'bg-slate-600' :
+    pct >= 95      ? 'bg-red-400'   :
+    pct >= 80      ? 'bg-amber-400' :
+    'bg-indigo-400'
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-xs mb-1.5">
+        <span className="text-slate-300 font-medium">{label}</span>
+        <span className="tabular-nums text-slate-400">
+          <span className="text-slate-100">{fmt(used)}</span>
+          <span className="text-slate-500">{' / '}{limit == null ? '∞' : fmt(limit)}</span>
+          {pct != null && (
+            <span className="text-slate-600 ml-2">
+              ({pct.toFixed(0)}%)
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden ring-1 ring-inset ring-slate-800/40">
+        <div
+          className={`h-full ${pctTone} transition-all duration-500 rounded-full`}
+          style={{ width: `${pct == null ? 0 : Math.max(pct, used > 0 ? 4 : 0)}%` }}
+        />
+      </div>
+    </div>
   )
 }
 

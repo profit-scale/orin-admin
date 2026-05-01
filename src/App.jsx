@@ -9,6 +9,8 @@ import CompanyDetail from './pages/CompanyDetail'
 import Staff from './pages/Staff'
 import Billing from './pages/Billing'
 import Perf from './pages/Perf'
+import AI from './pages/AI'
+import AIUsage from './pages/AIUsage'
 import AdminAuthCallback from './pages/AdminAuthCallback'
 
 export default function App() {
@@ -41,6 +43,8 @@ export default function App() {
                   <Route path="/staff" element={<Staff />} />
                   <Route path="/billing" element={<Billing />} />
                   <Route path="/perf" element={<Perf />} />
+                  <Route path="/ai" element={<AI />} />
+                  <Route path="/ai/usage" element={<AIUsage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminShell>
