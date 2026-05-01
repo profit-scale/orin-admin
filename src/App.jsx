@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
 import CompanyDetail from './pages/CompanyDetail'
 import Staff from './pages/Staff'
+import AdminAuthCallback from './pages/AdminAuthCallback'
 
 export default function App() {
   const auth = useAuth()
@@ -14,6 +15,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public: OAuth callback. Must live OUTSIDE AdminGate so the
+            unauthenticated round-trip from Google can complete. */}
+        <Route path="/auth/callback" element={<AdminAuthCallback />} />
+
         <Route
           path="/login"
           element={
