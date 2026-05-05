@@ -7,6 +7,7 @@ import {
   Gauge,
   Sparkles,
   BarChart3,
+  Bug,
 } from 'lucide-react'
 
 const navSections = [
@@ -17,6 +18,7 @@ const navSections = [
       { to: '/staff', label: 'Staff', icon: Users },
       { to: '/billing', label: 'Billing', icon: CreditCard },
       { to: '/perf', label: 'Perf', icon: Gauge },
+      { to: '/observability', label: 'Observability', icon: Bug },
     ],
   },
   {

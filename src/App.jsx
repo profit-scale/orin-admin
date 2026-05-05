@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { isConfigured } from './services/supabase'
@@ -13,6 +14,11 @@ import Perf from './pages/Perf'
 import AI from './pages/AI'
 import AIUsage from './pages/AIUsage'
 import AdminAuthCallback from './pages/AdminAuthCallback'
+
+// Lazy — observability bundle has its own dependencies (sparkline,
+// drawer, realtime subscription) that we don't need on the
+// dashboard route.
+const Observability = lazy(() => import('./pages/Observability'))
 
 // Shown when VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY are missing — most
 // commonly on a fresh Netlify deploy where the env vars haven't been set.
@@ -82,6 +88,20 @@ export default function App() {
                   <Route path="/staff" element={<Staff />} />
                   <Route path="/billing" element={<Billing />} />
                   <Route path="/perf" element={<Perf />} />
+                  <Route
+                    path="/observability"
+                    element={
+                      <Suspense
+                        fallback={
+                          <div className="flex items-center justify-center py-24">
+                            <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                          </div>
+                        }
+                      >
+                        <Observability />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/ai" element={<AI />} />
                   <Route path="/ai/usage" element={<AIUsage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
