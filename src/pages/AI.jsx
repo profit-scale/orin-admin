@@ -5,9 +5,12 @@ import {
   CheckCircle2,
   ExternalLink,
   KeyRound,
+  Loader2,
+  Plug,
   Save,
   Sparkles,
   XCircle,
+  Zap,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
@@ -371,6 +374,9 @@ export default function AIPage() {
         <Banner tone="danger" title="Failed to load configuration">{error}</Banner>
       )}
 
+      {/* Connection health card — runs a real Anthropic API ping */}
+      <ConnectionHealthCard />
+
       {/* API key location notice */}
       <Banner tone="warning" title="API key is managed in Supabase, not here">
         <p>
@@ -629,6 +635,170 @@ export default function AIPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// ConnectionHealthCard — calls admin-ai-status edge function
+// ────────────────────────────────────────────────────────────────────
+//
+// Real-time check of:
+//   • Is ANTHROPIC_API_KEY set in Supabase?
+//   • Does the key actually work (1-token Anthropic ping via Haiku)?
+//   • What's the latency from edge fn → Anthropic?
+// ────────────────────────────────────────────────────────────────────
+function ConnectionHealthCard() {
+  const [status, setStatus] = useState(null)   // null | { ok, checks, hint? }
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState(null)
+
+  const runCheck = useCallback(async () => {
+    setRunning(true)
+    setError(null)
+    try {
+      const { data, error: err } = await supabase.functions.invoke('admin-ai-status', {
+        body: {},
+      })
+      if (err) throw err
+      setStatus(data)
+    } catch (e) {
+      setError(e?.message || String(e))
+    } finally {
+      setRunning(false)
+    }
+  }, [])
+
+  // Run once on mount so the card is informative immediately
+  useEffect(() => { runCheck() }, [runCheck])
+
+  // Compute the visual state
+  const checks = status?.checks || {}
+  const tier = !status
+    ? 'loading'
+    : status.ok
+      ? 'healthy'
+      : !checks.secret_set
+        ? 'missing-key'
+        : !checks.api_reachable
+          ? 'unreachable'
+          : 'broken'
+
+  const tierMeta = {
+    loading:     { color: 'slate',   icon: Loader2,    label: 'Checking…',          dot: 'bg-slate-400 animate-pulse' },
+    healthy:     { color: 'emerald', icon: CheckCircle2, label: 'Connected',         dot: 'bg-emerald-400' },
+    'missing-key':{color: 'amber',   icon: KeyRound,   label: 'API key missing',     dot: 'bg-amber-400' },
+    unreachable: { color: 'rose',    icon: XCircle,    label: 'Unreachable',         dot: 'bg-rose-400' },
+    broken:      { color: 'rose',    icon: AlertTriangle, label: 'Connection error', dot: 'bg-rose-400 animate-pulse' },
+  }[tier]
+
+  const Icon = tierMeta.icon
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Plug className="w-4 h-4 text-slate-400" />
+            <h3 className="text-sm font-semibold text-slate-200">Anthropic connection</h3>
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-${tierMeta.color}-500/15 text-${tierMeta.color}-300`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${tierMeta.dot}`} />
+              {tierMeta.label}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            One-call ping using your default model. Verifies the key, the network, and the Anthropic API in one shot.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={runCheck}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/60 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+        >
+          {running ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Testing…
+            </>
+          ) : (
+            <>
+              <Zap className="w-3.5 h-3.5" />
+              Test connection
+            </>
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          Could not call admin-ai-status: {error}
+        </div>
+      )}
+
+      {status && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <CheckRow
+            ok={checks.secret_set}
+            label="ANTHROPIC_API_KEY is set"
+            detail={checks.secret_set ? 'Found in edge function secrets' : 'Not configured'}
+          />
+          <CheckRow
+            ok={checks.secret_format_ok}
+            label="Key format looks valid"
+            detail={checks.secret_format_ok ? 'sk-ant-* pattern' : 'Doesn\'t match expected pattern'}
+          />
+          <CheckRow
+            ok={checks.api_reachable}
+            label="Anthropic API reachable"
+            detail={
+              checks.api_reachable
+                ? `${checks.api_latency_ms}ms latency`
+                : checks.api_error
+                  ? checks.api_error.slice(0, 100)
+                  : 'No response'
+            }
+          />
+          <CheckRow
+            ok={checks.api_reachable}
+            label="Default model responds"
+            detail={
+              checks.api_model
+                ? `${checks.api_model} returned: "${(checks.api_response_text || '').trim() || '...'}"`
+                : 'No response yet'
+            }
+          />
+        </div>
+      )}
+
+      {status && !status.ok && status.hint && (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200 whitespace-pre-line">
+          <div className="font-semibold mb-1">How to fix</div>
+          {status.hint}
+        </div>
+      )}
+
+      {checks.last_checked_at && (
+        <div className="mt-3 text-[11px] text-slate-500">
+          Last checked: {new Date(checks.last_checked_at).toLocaleString()}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CheckRow({ ok, label, detail }) {
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 ${ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
+      <div className="flex items-center gap-2 mb-0.5">
+        {ok ? (
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        ) : (
+          <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+        )}
+        <span className="text-xs font-medium text-slate-200">{label}</span>
+      </div>
+      <div className="text-[11px] text-slate-400 pl-5.5">{detail}</div>
     </div>
   )
 }
