@@ -18,26 +18,20 @@ import Skeleton from '../components/ui/Skeleton'
 // constants
 // ────────────────────────────────────────────────────────────────────
 
+// Single-vendor architecture (consolidated to Anthropic in migration 101).
+// The provider dropdown is a one-option list now; we keep the field so we
+// can re-add other providers later if needed without a schema change.
 const PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic' },
-  { id: 'openai',    label: 'OpenAI' },
-  { id: 'google',    label: 'Google' },
 ]
 
+// Haiku is listed first and recommended — it's the cheapest Claude.
+// Super-admins can still override per surface (Sonnet/Opus options remain).
 const MODELS_BY_PROVIDER = {
   anthropic: [
-    { id: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5' },
-    { id: 'claude-haiku-4-5',  label: 'claude-haiku-4-5' },
-    { id: 'claude-opus-4-5',   label: 'claude-opus-4-5' },
-  ],
-  openai: [
-    { id: 'gpt-4o',          label: 'gpt-4o' },
-    { id: 'gpt-4o-mini',     label: 'gpt-4o-mini' },
-    { id: 'gpt-4o-realtime', label: 'gpt-4o-realtime' },
-  ],
-  google: [
-    { id: 'gemini-2.5-pro',   label: 'gemini-2.5-pro' },
-    { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
+    { id: 'claude-haiku-4-5',           label: 'claude-haiku-4-5 (recommended)' },
+    { id: 'claude-sonnet-4-5-20251022', label: 'claude-sonnet-4-5' },
+    { id: 'claude-opus-4-5',            label: 'claude-opus-4-5' },
   ],
 }
 
@@ -60,7 +54,7 @@ function emptyConfig() {
   return {
     is_enabled: true,
     provider: 'anthropic',
-    default_model: 'claude-sonnet-4-5',
+    default_model: 'claude-haiku-4-5',
     surface_models: {},
     system_prompts: {},
     max_tokens_per_call: 4000,
@@ -380,10 +374,9 @@ export default function AIPage() {
       {/* API key location notice */}
       <Banner tone="warning" title="API key is managed in Supabase, not here">
         <p>
-          The actual API key is set as <code className="px-1 py-0.5 bg-black/30 rounded">ANTHROPIC_API_KEY</code>{' '}
-          (or <code className="px-1 py-0.5 bg-black/30 rounded">OPENAI_API_KEY</code> /{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">GEMINI_API_KEY</code>) in Supabase
-          edge function secrets. Manage that via the Supabase dashboard.
+          The Anthropic master key is set as{' '}
+          <code className="px-1 py-0.5 bg-black/30 rounded">ANTHROPIC_API_KEY</code>{' '}
+          in Supabase edge function secrets. Manage it via the Supabase dashboard.
         </p>
         <p className="mt-2">
           <a
@@ -396,6 +389,18 @@ export default function AIPage() {
             Open Edge Function secrets in Supabase
             <ExternalLink className="w-3 h-3" />
           </a>
+        </p>
+      </Banner>
+
+      {/* Recommendation note — Haiku is the cheapest Claude and the right
+          default for almost everything. Surface overrides exist for the
+          rare cases where Sonnet/Opus is genuinely worth the cost. */}
+      <Banner tone="info" title="Haiku is recommended for the best price/performance">
+        <p>
+          <code className="px-1 py-0.5 bg-black/30 rounded">claude-haiku-4-5</code>{' '}
+          costs roughly <strong>$0.80 per 1M input tokens</strong> and{' '}
+          <strong>$4 per 1M output tokens</strong>. That's 4×–10× cheaper than Sonnet
+          on the same task. Use Haiku unless a specific surface really needs more horsepower.
         </p>
       </Banner>
 
