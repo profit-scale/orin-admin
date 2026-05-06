@@ -39,12 +39,11 @@ const TIME_RANGES = [
   { id: '30d',  label: 'Last 30 days',  hours: 24 * 30 },
 ]
 
-const SOURCE_OPTIONS = [
-  { id: '',                 label: 'All sources' },
-  { id: 'client',           label: 'Client (browser)' },
-  { id: 'edge:payment-webhook',      label: 'edge: payment-webhook' },
-  { id: 'edge:booking-public-create', label: 'edge: booking-public-create' },
-  { id: 'edge:ai-completion',        label: 'edge: ai-completion' },
+// Default fallback list. The page also asks the DB for distinct sources
+// it has actually seen so the dropdown reflects reality.
+const DEFAULT_SOURCE_OPTIONS = [
+  { id: '',        label: 'All sources' },
+  { id: 'client',  label: 'Client (browser)' },
 ]
 
 const LEVEL_OPTIONS = [
@@ -57,6 +56,41 @@ const LEVEL_OPTIONS = [
 export default function Observability() {
   const [tab, setTab] = useState('issues')
   const [missingMigration, setMissingMigration] = useState(false)
+  // Live source list, discovered from the actual rows the DB has logged.
+  // Falls back to DEFAULT_SOURCE_OPTIONS until the query finishes.
+  const [sourceOptions, setSourceOptions] = useState(DEFAULT_SOURCE_OPTIONS)
+
+  // Discover sources from event_log + error_log so the dropdown reflects
+  // what's actually in the system (not a hardcoded list of edge fns).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const [evRes, errRes] = await Promise.all([
+        supabase
+          .from('event_log')
+          .select('source')
+          .not('source', 'is', null)
+          .limit(500),
+        supabase
+          .from('error_log')
+          .select('source')
+          .not('source', 'is', null)
+          .limit(500),
+      ])
+      if (cancelled) return
+      const set = new Set()
+      for (const row of evRes.data || []) if (row.source) set.add(row.source)
+      for (const row of errRes.data || []) if (row.source) set.add(row.source)
+      const sources = Array.from(set).sort()
+      if (sources.length > 0) {
+        setSourceOptions([
+          { id: '', label: 'All sources' },
+          ...sources.map((s) => ({ id: s, label: s })),
+        ])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -70,14 +104,12 @@ export default function Observability() {
       </div>
 
       {missingMigration && (
-        <Banner tone="warning" title="Migration 100 not yet applied">
+        <Banner tone="warning" title="Observability RPCs missing">
           The observability RPCs (
           <code className="px-1 py-0.5 bg-black/30 rounded">admin_error_groups</code>,{' '}
           <code className="px-1 py-0.5 bg-black/30 rounded">admin_error_rate</code>,{' '}
           <code className="px-1 py-0.5 bg-black/30 rounded">admin_error_spikes</code>
-          ) are missing. Apply{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">100_observability.sql</code>{' '}
-          to your Supabase project.
+          ) are not deployed. Apply migration 100 (or later) and reload.
         </Banner>
       )}
 
@@ -95,8 +127,8 @@ export default function Observability() {
         ]}
       />
 
-      {tab === 'issues' && <IssuesTab onMissing={() => setMissingMigration(true)} />}
-      {tab === 'live'   && <LiveTailTab />}
+      {tab === 'issues' && <IssuesTab onMissing={() => setMissingMigration(true)} sourceOptions={sourceOptions} />}
+      {tab === 'live'   && <LiveTailTab sourceOptions={sourceOptions} />}
       {tab === 'perf'   && <PerformanceTab onMissing={() => setMissingMigration(true)} />}
     </div>
   )
@@ -186,6 +218,9 @@ function StatTile({ icon: Icon, label, value, loading, tone = 'neutral' }) {
 
 function SpikeBanner({ onMissing }) {
   const [spikes, setSpikes] = useState([])
+  // Dismissed fingerprints — sticky for the lifetime of this tab so the
+  // same spike doesn't keep popping back up while you're investigating.
+  const [dismissed, setDismissed] = useState(() => new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -203,25 +238,42 @@ function SpikeBanner({ onMissing }) {
     return () => { cancelled = true; clearInterval(interval) }
   }, [onMissing])
 
-  if (spikes.length === 0) return null
+  const visible = spikes.filter((s) => !dismissed.has(s.fingerprint))
+  if (visible.length === 0) return null
 
   return (
     <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-start gap-3">
       <ShieldAlert className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-red-100 mb-1">
-          Active error spike{spikes.length > 1 ? 's' : ''} detected
+          Active error spike{visible.length > 1 ? 's' : ''} detected
         </p>
         <ul className="space-y-1 text-[11px] text-red-200">
-          {spikes.slice(0, 5).map((s) => (
-            <li key={s.fingerprint} className="truncate">
-              <code className="font-mono text-red-300/80 mr-2">{s.fingerprint}</code>
-              <span className="text-red-100">{s.message}</span>
-              <span className="ml-2 text-red-300">
+          {visible.slice(0, 5).map((s) => (
+            <li key={s.fingerprint} className="flex items-center gap-2 min-w-0">
+              <code className="font-mono text-red-300/80 shrink-0">
+                {String(s.fingerprint).slice(0, 16)}
+              </code>
+              <span className="text-red-100 truncate flex-1">{s.message}</span>
+              <span className="text-red-300 shrink-0">
                 {Number(s.baseline_rate) === 0
-                  ? `${Number(s.current_rate).toFixed(0)} hits in last 5 min`
-                  : `${Number(s.ratio).toFixed(1)}x baseline`}
+                  ? `${Number(s.current_rate).toFixed(0)} in 5m`
+                  : `${Number(s.ratio).toFixed(1)}× baseline`}
               </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setDismissed((prev) => {
+                    const next = new Set(prev)
+                    next.add(s.fingerprint)
+                    return next
+                  })
+                }
+                aria-label="Dismiss"
+                className="text-red-300/70 hover:text-red-100 transition shrink-0 px-1"
+              >
+                ×
+              </button>
             </li>
           ))}
         </ul>
@@ -234,7 +286,7 @@ function SpikeBanner({ onMissing }) {
 // Tab 1: Issues
 // ────────────────────────────────────────────────────────────────────
 
-function IssuesTab({ onMissing }) {
+function IssuesTab({ onMissing, sourceOptions }) {
   const [range, setRange]       = useState('24h')
   const [source, setSource]     = useState('')
   const [level, setLevel]       = useState('')
@@ -245,6 +297,9 @@ function IssuesTab({ onMissing }) {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
   const [activeFp, setActiveFp] = useState(null)
+  // Tiny inline toast — appears in the bottom-right when an issue is
+  // resolved/unresolved. Auto-dismisses after 2.5s.
+  const [toast, setToast]       = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -281,8 +336,20 @@ function IssuesTab({ onMissing }) {
     const { error } = await supabase.rpc('admin_resolve_error_group', {
       p_fingerprint: fp, p_resolve: true,
     })
-    if (!error) setGroups((prev) => prev.filter((g) => g.fingerprint !== fp))
+    if (!error) {
+      setGroups((prev) => prev.filter((g) => g.fingerprint !== fp))
+      setToast({ tone: 'success', text: `Issue resolved · ${fp.slice(0, 12)}` })
+    } else {
+      setToast({ tone: 'error', text: error.message || 'Resolve failed' })
+    }
   }, [])
+
+  // Auto-dismiss the toast after 2.5s
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   return (
     <div className="space-y-4">
@@ -294,7 +361,7 @@ function IssuesTab({ onMissing }) {
           <Filter className="w-3.5 h-3.5" /> Filters:
         </div>
         <Select value={range}  onChange={setRange}  options={TIME_RANGES} />
-        <Select value={source} onChange={setSource} options={SOURCE_OPTIONS} />
+        <Select value={source} onChange={setSource} options={sourceOptions} />
         <Select value={level}  onChange={setLevel}  options={LEVEL_OPTIONS} />
         <label className="ml-auto inline-flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
           <input
@@ -326,11 +393,21 @@ function IssuesTab({ onMissing }) {
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <EmptyState
-            icon={CheckCircle2}
-            title="No issues in this window"
-            description="Either nothing's broken, or the filters are too narrow. Try widening the time range."
-          />
+          <div className="px-6 py-12">
+            <div className="max-w-sm mx-auto text-center">
+              <div className="inline-flex w-14 h-14 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/30 items-center justify-center mb-4">
+                <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+              </div>
+              <div className="text-sm font-medium text-slate-100 mb-1">
+                {showResolved ? 'No resolved issues yet' : 'Nothing on fire right now'}
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {showResolved
+                  ? 'Once an issue is resolved it shows up here. Use the toggle on the right to flip back to open issues.'
+                  : 'No errors recorded in the selected window. Widen the time range or change the source/level filter to see more.'}
+              </p>
+            </div>
+          </div>
         ) : (
           <table className="w-full text-xs">
             <thead className="bg-slate-950/60">
@@ -392,8 +469,32 @@ function IssuesTab({ onMissing }) {
       <IssueDrawer
         fingerprint={activeFp}
         onClose={() => setActiveFp(null)}
-        onResolved={(fp) => setGroups((prev) => prev.filter((g) => g.fingerprint !== fp))}
+        onResolved={(fp) => {
+          setGroups((prev) => prev.filter((g) => g.fingerprint !== fp))
+          setToast({ tone: 'success', text: `Issue resolved · ${fp.slice(0, 12)}` })
+        }}
       />
+
+      {/* Toast — bottom-right, auto-dismisses */}
+      {toast && (
+        <div
+          role="status"
+          className={[
+            'fixed bottom-4 right-4 z-50 px-3.5 py-2.5 rounded-xl shadow-lg shadow-black/30',
+            'text-xs font-medium border backdrop-blur',
+            toast.tone === 'success'
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-100'
+              : 'bg-red-500/15 border-red-500/40 text-red-100',
+          ].join(' ')}
+        >
+          <span className="inline-flex items-center gap-2">
+            {toast.tone === 'success'
+              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+              : <ShieldAlert className="w-3.5 h-3.5 text-red-300" />}
+            {toast.text}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -443,7 +544,7 @@ function Select({ value, onChange, options }) {
 // Tab 2: Live tail
 // ────────────────────────────────────────────────────────────────────
 
-function LiveTailTab() {
+function LiveTailTab({ sourceOptions }) {
   const [rows, setRows] = useState([])
   const [autoScroll, setAutoScroll] = useState(true)
   const [filterSource, setFilterSource] = useState('')
@@ -504,7 +605,7 @@ function LiveTailTab() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={filterSource} onChange={setFilterSource} options={SOURCE_OPTIONS} />
+        <Select value={filterSource} onChange={setFilterSource} options={sourceOptions} />
         <Select
           value={filterLevel}
           onChange={setFilterLevel}

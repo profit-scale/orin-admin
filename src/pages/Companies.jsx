@@ -235,9 +235,9 @@ export default function Companies() {
       </div>
 
       {missingMigrations && (
-        <Banner tone="warning" className="mb-6" title="Migrations not yet applied">
-          The <code className="px-1 py-0.5 bg-black/30 rounded">admin_orgs_list</code> RPC is missing.
-          Apply the admin migrations (067-077) to your Supabase project to enable this page.
+        <Banner tone="warning" className="mb-6" title="admin_orgs_list RPC not deployed">
+          The companies list RPC isn't available on this database. Apply the
+          admin migrations (now at 111) and reload this page.
         </Banner>
       )}
 

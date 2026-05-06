@@ -160,7 +160,10 @@ export default function Dashboard() {
     return () => { cancelled = true }
   }, [])
 
-  // ── load recent signups (direct table query)
+  // ── load recent signups (direct table query) + realtime updates
+  // When a new org gets created we want to (a) prepend it to the list
+  // and (b) re-pull the platform overview so the counters update too.
+  // The realtime channel auto-cleans on unmount.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -182,7 +185,39 @@ export default function Dashboard() {
       }
       setSignupsLoading(false)
     })()
-    return () => { cancelled = true }
+
+    // Realtime — surface new signups instantly. When an org is inserted,
+    // refresh BOTH the signup list and the overview MV (best-effort).
+    const channel = supabase
+      .channel('orin-admin:organizations')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'organizations' },
+        (payload) => {
+          const row = payload?.new
+          if (!row || !row.id) return
+          setRecentSignups((prev) => {
+            // dedupe — skip if we already have it
+            if (prev.some((p) => p.id === row.id)) return prev
+            return [row, ...prev].slice(0, 10)
+          })
+          // Bump the platform overview counters by re-fetching after
+          // a quick refresh of the materialized view. Best-effort.
+          void supabase
+            .rpc('admin_refresh_platform_overview')
+            .then(() => supabase.rpc('admin_platform_overview'))
+            .then(({ data: o, error: rerr }) => {
+              if (!rerr && o) setOverview(Array.isArray(o) ? o[0] : o)
+            })
+            .catch(() => {})
+        },
+      )
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // ── load plan distribution
@@ -248,22 +283,31 @@ export default function Dashboard() {
   }, [])
 
   // ── chart data
+  // admin_mrr_history returns rows shaped:
+  //   { month_start, paid_invoice_cents, new_orgs }
+  // We chart paid_invoice_cents — that's the closest to "real money this
+  // month" we have until we wire Stripe revenue back into the platform.
   const chartData = useMemo(() => {
     return mrrHistory.map((row) => {
-      const dateStr = row.month || row.month_start || row.period || row.label
+      const dateStr = row.month_start || row.month || row.period || row.label
       const label = dateStr
         ? new Date(dateStr).toLocaleDateString('en-US', { month: 'short' })
         : '—'
-      const value = Number(row.mrr_cents ?? row.mrr ?? row.value ?? 0)
+      const value = Number(
+        row.paid_invoice_cents ?? row.mrr_cents ?? row.mrr ?? row.value ?? 0
+      )
       return { label, value }
     })
   }, [mrrHistory])
 
   // ── derive figures
-  const totalOrgs = overview?.total_orgs ?? overview?.total_companies ?? null
-  const activeOrgs = overview?.active_orgs ?? overview?.active_companies ?? null
-  const mrrCents = overview?.mrr_cents ?? (overview?.mrr != null ? overview.mrr * 100 : null)
-  const totalUsers = overview?.total_users ?? overview?.active_users ?? null
+  // Match the field names admin_platform_overview actually returns
+  // (it pulls straight from mv_platform_overview).
+  // We accept legacy aliases too in case a future migration renames them.
+  const totalOrgs   = overview?.total_organizations     ?? overview?.total_orgs       ?? overview?.total_companies   ?? null
+  const activeOrgs  = overview?.active_organizations_30d ?? overview?.active_orgs     ?? overview?.active_companies  ?? null
+  const mrrCents    = overview?.mrr_cents               ?? (overview?.mrr != null ? overview.mrr * 100 : null)
+  const totalUsers  = overview?.total_users             ?? overview?.active_users     ?? null
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -283,12 +327,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Migrations warning */}
+      {/* Migrations warning — only shows up if the RPC truly isn't deployed
+          yet. After 111 this should never fire on the live stack. */}
       {missingMigrations && (
-        <Banner tone="warning" title="Migrations 073-077 not yet applied">
-          Some platform-wide RPCs (<code className="px-1 py-0.5 bg-black/30 rounded">admin_platform_overview</code>,{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">admin_mrr_history</code>) are missing.
-          Apply the admin migrations to your Supabase project to populate this view.
+        <Banner tone="warning" title="Platform RPC not deployed">
+          The <code className="px-1 py-0.5 bg-black/30 rounded">admin_platform_overview</code>{' '}
+          RPC is missing on this database. Apply the admin migrations
+          (now starting at 111) to populate the dashboard.
         </Banner>
       )}
 

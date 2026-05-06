@@ -3,12 +3,14 @@ import {
   AlertTriangle,
   Bot,
   CheckCircle2,
-  ExternalLink,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   Plug,
   Save,
   Sparkles,
+  Trash2,
   XCircle,
   Zap,
 } from 'lucide-react'
@@ -22,8 +24,8 @@ import Skeleton from '../components/ui/Skeleton'
 // ────────────────────────────────────────────────────────────────────
 
 // Single-vendor architecture (consolidated to Anthropic in migration 101).
-// The provider dropdown is a one-option list now; we keep the field so we
-// can re-add other providers later if needed without a schema change.
+// Provider is hard-locked to 'anthropic' but kept as a select for the
+// rare future where a second provider ships.
 const PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic' },
 ]
@@ -32,12 +34,20 @@ const PROVIDERS = [
 // Super-admins can still override per surface (Sonnet/Opus options remain).
 const MODELS_BY_PROVIDER = {
   anthropic: [
-    { id: 'claude-haiku-4-5',           label: 'claude-haiku-4-5 (recommended)' },
+    { id: 'claude-haiku-4-5',           label: 'claude-haiku-4-5 (recommended · cheapest)' },
     { id: 'claude-sonnet-4-5-20251022', label: 'claude-sonnet-4-5' },
     { id: 'claude-opus-4-5',            label: 'claude-opus-4-5' },
   ],
 }
 
+// Surfaces that the platform AI is responsible for. The model dropdown
+// is per-surface (a UX choice, not a security one).
+//
+// NOTE: System prompts USED to be edited here as raw textareas. That
+// was footgun-y — a typo in a customer-facing prompt could break the
+// AI for every tenant. Prompts now live in `platform_ai_config.system_prompts`
+// as DB-only state with sane defaults baked into the edge function.
+// If someone really needs to override a prompt, do it via SQL.
 const SURFACES = [
   { id: 'chat-widget',        label: 'Chat widget',        hint: 'In-app conversational helper' },
   { id: 'compass-narrative',  label: 'Compass narrative',  hint: 'Daily/weekly executive summary' },
@@ -45,9 +55,6 @@ const SURFACES = [
   { id: 'quick-reply',        label: 'Quick reply',        hint: 'One-tap reply suggestions' },
   { id: 'data-extractor',     label: 'Data extractor',     hint: 'Pull structured fields from text' },
 ]
-
-const SUPABASE_PROJECT_REF = 'tnafbfjthhykvecepxla'
-const SECRETS_URL = `https://supabase.com/dashboard/project/${SUPABASE_PROJECT_REF}/settings/functions`
 
 // ────────────────────────────────────────────────────────────────────
 // helpers
@@ -59,7 +66,6 @@ function emptyConfig() {
     provider: 'anthropic',
     default_model: 'claude-haiku-4-5',
     surface_models: {},
-    system_prompts: {},
     max_tokens_per_call: 4000,
     max_cost_cents_per_call: 50,
   }
@@ -68,6 +74,29 @@ function emptyConfig() {
 function formatDollarsFromCents(cents) {
   const v = Number(cents) || 0
   return `$${(v / 100).toFixed(2)}`
+}
+
+function formatRelative(s) {
+  if (!s) return null
+  try {
+    const diff = Math.max(0, Date.now() - new Date(s).getTime())
+    const m = Math.floor(diff / 60_000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    const d = Math.floor(h / 24)
+    if (d < 30) return `${d}d ago`
+    return new Date(s).toLocaleDateString()
+  } catch { return s }
+}
+
+// Mask an in-progress key for display — the user-typed key never leaves
+// the page until they click Save.
+function clientMask(key) {
+  if (!key) return ''
+  if (key.length < 12) return '•'.repeat(key.length)
+  return `${key.slice(0, 8)}…${key.slice(-4)}`
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -153,9 +182,7 @@ function Toggle({ checked, onChange, label, disabled }) {
       type="button"
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
-      className={[
-        'inline-flex items-center gap-2 px-1 py-1 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed',
-      ].join(' ')}
+      className="inline-flex items-center gap-2 px-1 py-1 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
       aria-pressed={checked}
     >
       <span
@@ -200,7 +227,6 @@ export default function AIPage() {
         .limit(1)
         .maybeSingle()
       if (err) {
-        // 42P01 = relation does not exist
         if (err.code === '42P01' || /relation .* does not exist/i.test(err.message || '')) {
           setMissingMigrations(true)
         } else if (isMissingFunction(err)) {
@@ -214,10 +240,12 @@ export default function AIPage() {
         setConfig(emptyConfig())
         setOriginal(emptyConfig())
       } else {
-        const merged = { ...emptyConfig(), ...data }
-        // Defensive: ensure JSONB fields are always objects
+        // Strip out system_prompts on the way in — we no longer surface
+        // them in the UI (see SURFACES comment above). Keep everything
+        // else.
+        const { system_prompts: _ignored, ...safe } = data
+        const merged = { ...emptyConfig(), ...safe }
         merged.surface_models = merged.surface_models || {}
-        merged.system_prompts = merged.system_prompts || {}
         setConfig(merged)
         setOriginal(merged)
       }
@@ -252,19 +280,6 @@ export default function AIPage() {
     setSaveError(null)
   }
 
-  function patchSystemPrompt(surfaceId, text) {
-    setConfig((prev) => {
-      const next = { ...(prev.system_prompts || {}) }
-      if (text == null || text === '') delete next[surfaceId]
-      else next[surfaceId] = text
-      return { ...prev, system_prompts: next }
-    })
-    setSaveOk(false)
-    setSaveError(null)
-  }
-
-  // When the provider changes, snap the default model to the first option
-  // for the new provider if the current selection is from the wrong provider.
   function changeProvider(provider) {
     const list = (MODELS_BY_PROVIDER[provider] || []).map((m) => m.id)
     setConfig((prev) => ({
@@ -281,17 +296,17 @@ export default function AIPage() {
     setSaveError(null)
     setSaveOk(false)
     try {
+      // Note: NOT writing system_prompts. The DB column is preserved for
+      // backwards compatibility with the edge function's defaults.
       const payload = {
         is_enabled: !!config.is_enabled,
         provider: config.provider,
         default_model: config.default_model,
         surface_models: config.surface_models || {},
-        system_prompts: config.system_prompts || {},
         max_tokens_per_call: Number(config.max_tokens_per_call) || 4000,
         max_cost_cents_per_call: Number(config.max_cost_cents_per_call) || 0,
       }
 
-      // Singleton row pattern: try update first, fall back to insert.
       let updateRes
       if (config.id) {
         updateRes = await supabase
@@ -301,7 +316,6 @@ export default function AIPage() {
           .select('*')
           .single()
       } else {
-        // No row yet — insert.
         updateRes = await supabase
           .from('platform_ai_config')
           .insert(payload)
@@ -310,14 +324,14 @@ export default function AIPage() {
       }
       if (updateRes.error) throw updateRes.error
 
-      const next = { ...emptyConfig(), ...updateRes.data }
+      const { system_prompts: _ignored, ...safe } = updateRes.data
+      const next = { ...emptyConfig(), ...safe }
       next.surface_models = next.surface_models || {}
-      next.system_prompts = next.system_prompts || {}
       setConfig(next)
       setOriginal(next)
       setSaveOk(true)
 
-      // Best-effort audit log; don't fail the save if audit is unavailable.
+      // Best-effort audit log
       await supabase.rpc('log_admin_action', {
         p_action: 'ai_config_update',
         p_metadata: {
@@ -325,7 +339,6 @@ export default function AIPage() {
           default_model: payload.default_model,
           is_enabled: payload.is_enabled,
           surfaces_with_overrides: Object.keys(payload.surface_models).length,
-          surfaces_with_prompts: Object.keys(payload.system_prompts).length,
         },
       }).catch(() => {})
     } catch (e) {
@@ -361,11 +374,10 @@ export default function AIPage() {
       </div>
 
       {missingMigrations && (
-        <Banner tone="warning" title="Migrations 083/084 not yet applied">
+        <Banner tone="warning" title="platform_ai_config table missing">
           The <code className="px-1 py-0.5 bg-black/30 rounded">platform_ai_config</code> table
-          and supporting RPCs are missing. Apply migrations{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">083_*</code> and{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">084_admin_ai_usage_rpcs.sql</code>{' '}
+          is not deployed. Apply migration{' '}
+          <code className="px-1 py-0.5 bg-black/30 rounded">103_platform_ai_secret.sql</code>{' '}
           to your Supabase project.
         </Banner>
       )}
@@ -374,33 +386,17 @@ export default function AIPage() {
         <Banner tone="danger" title="Failed to load configuration">{error}</Banner>
       )}
 
-      {/* Connection health card — runs a real Anthropic API ping */}
-      <ConnectionHealthCard />
+      {/* API key card — paste, test, save without leaving the dashboard. */}
+      <APIKeyCard
+        config={config}
+        onPersisted={(persisted) => {
+          // After a successful save, reload the config so the masked key
+          // / set_at / health all show the new state.
+          load()
+        }}
+      />
 
-      {/* API key location notice */}
-      <Banner tone="warning" title="API key is managed in Supabase, not here">
-        <p>
-          The Anthropic master key is set as{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">ANTHROPIC_API_KEY</code>{' '}
-          in Supabase edge function secrets. Manage it via the Supabase dashboard.
-        </p>
-        <p className="mt-2">
-          <a
-            href={SECRETS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-amber-300 hover:text-amber-100 underline underline-offset-2"
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            Open Edge Function secrets in Supabase
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </p>
-      </Banner>
-
-      {/* Recommendation note — Haiku is the cheapest Claude and the right
-          default for almost everything. Surface overrides exist for the
-          rare cases where Sonnet/Opus is genuinely worth the cost. */}
+      {/* Recommendation note */}
       <Banner tone="info" title="Haiku is recommended for the best price/performance">
         <p>
           <code className="px-1 py-0.5 bg-black/30 rounded">claude-haiku-4-5</code>{' '}
@@ -514,40 +510,6 @@ export default function AIPage() {
         )}
       </SectionCard>
 
-      {/* System prompts */}
-      <SectionCard
-        title="System prompts"
-        subtitle="Override the system prompt sent to the model for each surface"
-      >
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} width="100%" height={80} />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {SURFACES.map((s) => (
-              <div key={s.id}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] uppercase tracking-wider text-slate-500">
-                    {s.label} prompt
-                  </label>
-                  <code className="text-[10px] text-slate-600">{s.id}</code>
-                </div>
-                <textarea
-                  rows={4}
-                  value={config.system_prompts?.[s.id] || ''}
-                  onChange={(e) => patchSystemPrompt(s.id, e.target.value)}
-                  placeholder={`System prompt for the ${s.label.toLowerCase()} surface…`}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none font-mono leading-relaxed"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
       {/* Limits */}
       <SectionCard
         title="Per-call limits"
@@ -640,59 +602,148 @@ export default function AIPage() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// ConnectionHealthCard — calls admin-ai-status edge function
+// APIKeyCard — paste, test, save the Anthropic key without leaving here.
 // ────────────────────────────────────────────────────────────────────
 //
-// Real-time check of:
-//   • Is ANTHROPIC_API_KEY set in Supabase?
-//   • Does the key actually work (1-token Anthropic ping via Haiku)?
-//   • What's the latency from edge fn → Anthropic?
-// ────────────────────────────────────────────────────────────────────
-function ConnectionHealthCard() {
-  const [status, setStatus] = useState(null)   // null | { ok, checks, hint? }
-  const [running, setRunning] = useState(false)
-  const [error, setError] = useState(null)
+// Flow:
+//   1. On mount, call admin-ai-status → shows current key state, masked
+//      key from the saved row, last health check.
+//   2. User types a new key → "Test connection" calls
+//      admin-ai-status({ key }) which validates the candidate key against
+//      Anthropic without persisting.
+//   3. "Save key" calls admin-ai-set-key({ key }), which validates AND
+//      persists via the set_platform_ai_key RPC. The card then reloads
+//      itself so the masked key, set_at, and health pill all reflect the
+//      new state.
+//
+// We never echo the typed key back. We never store it client-side.
 
-  const runCheck = useCallback(async () => {
-    setRunning(true)
-    setError(null)
+function APIKeyCard({ config, onPersisted }) {
+  const [status, setStatus] = useState(null)     // health snapshot (admin-ai-status)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState(null)
+
+  const [draftKey, setDraftKey] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)  // { ok, message, latency_ms }
+  const [savingKey, setSavingKey] = useState(false)
+  const [saveResult, setSaveResult] = useState(null)  // { ok, message, masked, latency_ms }
+
+  // Load current status on mount + after any save
+  const reloadStatus = useCallback(async () => {
+    setStatusLoading(true)
+    setStatusError(null)
     try {
-      const { data, error: err } = await supabase.functions.invoke('admin-ai-status', {
+      const { data, error } = await supabase.functions.invoke('admin-ai-status', {
         body: {},
       })
-      if (err) throw err
+      if (error) throw error
       setStatus(data)
     } catch (e) {
-      setError(e?.message || String(e))
+      setStatusError(e?.message || String(e))
     } finally {
-      setRunning(false)
+      setStatusLoading(false)
     }
   }, [])
 
-  // Run once on mount so the card is informative immediately
-  useEffect(() => { runCheck() }, [runCheck])
+  useEffect(() => { reloadStatus() }, [reloadStatus])
 
-  // Compute the visual state
   const checks = status?.checks || {}
+
+  // Compute a single health tier for the pill at the top of the card.
   const tier = !status
     ? 'loading'
     : status.ok
       ? 'healthy'
       : !checks.secret_set
-        ? 'missing-key'
+        ? 'missing'
         : !checks.api_reachable
-          ? 'unreachable'
+          ? 'broken'
           : 'broken'
 
   const tierMeta = {
-    loading:     { color: 'slate',   icon: Loader2,    label: 'Checking…',          dot: 'bg-slate-400 animate-pulse' },
-    healthy:     { color: 'emerald', icon: CheckCircle2, label: 'Connected',         dot: 'bg-emerald-400' },
-    'missing-key':{color: 'amber',   icon: KeyRound,   label: 'API key missing',     dot: 'bg-amber-400' },
-    unreachable: { color: 'rose',    icon: XCircle,    label: 'Unreachable',         dot: 'bg-rose-400' },
-    broken:      { color: 'rose',    icon: AlertTriangle, label: 'Connection error', dot: 'bg-rose-400 animate-pulse' },
-  }[tier]
+    loading: { color: 'slate',   label: 'Checking…',         dot: 'bg-slate-400 animate-pulse' },
+    healthy: { color: 'emerald', label: 'Connected',         dot: 'bg-emerald-400' },
+    missing: { color: 'amber',   label: 'No key set',        dot: 'bg-amber-400' },
+    broken:  { color: 'rose',    label: 'Connection error',  dot: 'bg-rose-400' },
+  }[tier] || { color: 'slate', label: 'Unknown', dot: 'bg-slate-400' }
 
-  const Icon = tierMeta.icon
+  // ── Test the candidate key against Anthropic without persisting.
+  async function onTest() {
+    setTesting(true)
+    setTestResult(null)
+    setSaveResult(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-ai-status', {
+        body: { key: draftKey.trim() },
+      })
+      if (error) throw error
+      // admin-ai-status returns { ok, checks: {...} }
+      const innerChecks = data?.checks || {}
+      if (data?.ok) {
+        setTestResult({
+          ok: true,
+          message: `Connected · ${innerChecks.api_latency_ms}ms · ${innerChecks.api_model}`,
+          latency_ms: innerChecks.api_latency_ms,
+        })
+      } else {
+        setTestResult({
+          ok: false,
+          message:
+            innerChecks.api_error ||
+            (innerChecks.secret_format_ok === false
+              ? "Doesn't match Anthropic's key pattern (sk-ant-…)"
+              : 'Anthropic rejected the key.'),
+        })
+      }
+    } catch (e) {
+      setTestResult({ ok: false, message: e?.message || String(e) })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  // ── Save: validates + persists in one round trip.
+  async function onSaveKey() {
+    setSavingKey(true)
+    setTestResult(null)
+    setSaveResult(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-ai-set-key', {
+        body: { key: draftKey.trim(), mode: 'save' },
+      })
+      if (error) throw error
+      if (data?.ok) {
+        setSaveResult({
+          ok: true,
+          message: `Saved · ${data.masked} · ${data.latency_ms}ms ping`,
+          masked: data.masked,
+          latency_ms: data.latency_ms,
+        })
+        setDraftKey('')   // clear the typed key from memory
+        setShowKey(false)
+        // Refresh local status + parent config (so page-level state matches)
+        reloadStatus()
+        onPersisted?.(data)
+      } else {
+        setSaveResult({
+          ok: false,
+          message: data?.message || 'Save failed.',
+          code: data?.code,
+        })
+      }
+    } catch (e) {
+      setSaveResult({ ok: false, message: e?.message || String(e) })
+    } finally {
+      setSavingKey(false)
+    }
+  }
+
+  const draftValid = draftKey.trim().length > 0
+  const lastSetMasked  = config?.api_key_masked || null
+  const lastSetAt      = config?.api_key_set_at || null
+  const consecutiveFailures = Number(config?.consecutive_failures || 0)
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
@@ -700,105 +751,187 @@ function ConnectionHealthCard() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Plug className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Anthropic connection</h3>
+            <h3 className="text-sm font-semibold text-slate-200">Anthropic API key</h3>
             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-${tierMeta.color}-500/15 text-${tierMeta.color}-300`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${tierMeta.dot}`} />
               {tierMeta.label}
             </span>
           </div>
-          <p className="text-xs text-slate-500">
-            One-call ping using your default model. Verifies the key, the network, and the Anthropic API in one shot.
+          <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+            Paste an Anthropic API key below. Hit <strong>Test</strong> to ping the
+            real API without saving, or <strong>Save</strong> to validate AND persist
+            in one step. The key is masked after save and never echoed back.
           </p>
         </div>
         <button
           type="button"
-          onClick={runCheck}
-          disabled={running}
+          onClick={reloadStatus}
+          disabled={statusLoading}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/60 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
-          {running ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Testing…
-            </>
+          {statusLoading ? (
+            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking…</>
           ) : (
-            <>
-              <Zap className="w-3.5 h-3.5" />
-              Test connection
-            </>
+            <><Zap className="w-3.5 h-3.5" /> Re-check</>
           )}
         </button>
       </div>
 
-      {error && (
-        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-          Could not call admin-ai-status: {error}
+      {/* Current state row — masked key, set-at, source */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <CurrentField
+          icon={KeyRound}
+          label="Saved key"
+          value={lastSetMasked || '— none saved —'}
+          mono
+        />
+        <CurrentField
+          icon={CheckCircle2}
+          label="Saved at"
+          value={lastSetAt ? formatRelative(lastSetAt) : '— never —'}
+        />
+        <CurrentField
+          icon={Plug}
+          label="Source"
+          value={
+            checks.secret_source === 'database'  ? 'Database (this page)' :
+            checks.secret_source === 'env'       ? 'Edge function env (legacy)' :
+            checks.secret_source === 'candidate' ? 'Candidate (testing)' :
+            checks.secret_source === 'none'      ? 'None set' :
+            statusLoading                        ? 'Checking…' :
+            'Unknown'
+          }
+        />
+      </div>
+
+      {consecutiveFailures > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 inline-flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>
+            <strong>{consecutiveFailures}</strong> consecutive health-check failure{consecutiveFailures === 1 ? '' : 's'}
+            {' '}— the saved key may have been rotated upstream.
+          </span>
         </div>
       )}
 
-      {status && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <CheckRow
-            ok={checks.secret_set}
-            label="ANTHROPIC_API_KEY is set"
-            detail={checks.secret_set ? 'Found in edge function secrets' : 'Not configured'}
-          />
-          <CheckRow
-            ok={checks.secret_format_ok}
-            label="Key format looks valid"
-            detail={checks.secret_format_ok ? 'sk-ant-* pattern' : 'Doesn\'t match expected pattern'}
-          />
-          <CheckRow
-            ok={checks.api_reachable}
-            label="Anthropic API reachable"
-            detail={
-              checks.api_reachable
-                ? `${checks.api_latency_ms}ms latency`
-                : checks.api_error
-                  ? checks.api_error.slice(0, 100)
-                  : 'No response'
+      {/* Paste-a-new-key row */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <KeyRound className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={draftKey}
+              onChange={(e) => { setDraftKey(e.target.value); setTestResult(null); setSaveResult(null) }}
+              placeholder="sk-ant-api03-…"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full pl-8 pr-9 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-200 transition"
+              aria-label={showKey ? 'Hide key' : 'Show key'}
+            >
+              {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={onTest}
+            disabled={!draftValid || testing || savingKey}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800/60 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            {testing
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Testing…</>
+              : <><Zap className="w-3.5 h-3.5" /> Test</>
             }
-          />
-          <CheckRow
-            ok={checks.api_reachable}
-            label="Default model responds"
-            detail={
-              checks.api_model
-                ? `${checks.api_model} returned: "${(checks.api_response_text || '').trim() || '...'}"`
-                : 'No response yet'
+          </button>
+
+          <button
+            type="button"
+            onClick={onSaveKey}
+            disabled={!draftValid || testing || savingKey}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            {savingKey
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+              : <><Save className="w-3.5 h-3.5" /> Save</>
             }
-          />
-        </div>
-      )}
+          </button>
 
-      {status && !status.ok && status.hint && (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200 whitespace-pre-line">
-          <div className="font-semibold mb-1">How to fix</div>
-          {status.hint}
+          {draftKey && !savingKey && !testing && (
+            <button
+              type="button"
+              onClick={() => { setDraftKey(''); setTestResult(null); setSaveResult(null) }}
+              className="inline-flex items-center gap-1 px-2 py-2 text-xs rounded-lg text-slate-500 hover:text-slate-200 transition shrink-0"
+              aria-label="Clear"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-      )}
 
-      {checks.last_checked_at && (
-        <div className="mt-3 text-[11px] text-slate-500">
-          Last checked: {new Date(checks.last_checked_at).toLocaleString()}
+        {/* Live preview of typed key (always masked) — reassures the user
+            their paste worked without leaking the secret. */}
+        {draftKey && !showKey && (
+          <div className="text-[11px] text-slate-500 font-mono pl-1">
+            Typing: <span className="text-slate-400">{clientMask(draftKey)}</span>
+            <span className="ml-2 text-slate-600">({draftKey.length} chars)</span>
+          </div>
+        )}
+
+        {/* Test/save feedback */}
+        {testResult && (
+          <ResultPill ok={testResult.ok} text={testResult.message} />
+        )}
+        {saveResult && (
+          <ResultPill ok={saveResult.ok} text={saveResult.message} />
+        )}
+      </div>
+
+      {/* Initial-status error (network failure to even reach the edge fn) */}
+      {statusError && (
+        <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          Could not reach admin-ai-status: {statusError}
         </div>
       )}
     </div>
   )
 }
 
-function CheckRow({ ok, label, detail }) {
+function CurrentField({ icon: Icon, label, value, mono }) {
   return (
-    <div className={`rounded-lg border px-3 py-2.5 ${ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
-      <div className="flex items-center gap-2 mb-0.5">
-        {ok ? (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-        ) : (
-          <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-        )}
-        <span className="text-xs font-medium text-slate-200">{label}</span>
+    <div className="rounded-xl border border-slate-800/60 bg-slate-950/60 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+        {Icon && <Icon className="w-3 h-3" />}
+        {label}
       </div>
-      <div className="text-[11px] text-slate-400 pl-5.5">{detail}</div>
+      <div className={`text-sm text-slate-200 ${mono ? 'font-mono' : ''} truncate`} title={value}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function ResultPill({ ok, text }) {
+  return (
+    <div
+      className={[
+        'rounded-lg border px-3 py-2 text-xs flex items-start gap-2',
+        ok
+          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+          : 'border-rose-500/30 bg-rose-500/10 text-rose-100',
+      ].join(' ')}
+    >
+      {ok ? (
+        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-300" />
+      ) : (
+        <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-300" />
+      )}
+      <span>{text}</span>
     </div>
   )
 }
