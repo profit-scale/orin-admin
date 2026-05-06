@@ -5,7 +5,7 @@
 //
 //   1. Wrap a whole page:
 //        <TotpGate><MySensitivePage /></TotpGate>
-//      If no fresh totp cookie, renders an inline prompt that redirects
+//      If no fresh totp session, renders an inline prompt that redirects
 //      to /security/2fa?mode=verify&return=<current-path>.
 //
 //   2. Programmatic check before an action:
@@ -13,30 +13,86 @@
 //        if (!ok) return  // user got redirected
 //        ... do sensitive thing ...
 //
-// The gate is best-effort — the actual security boundary is the SQL
-// super-admin gate + audit. This is a UX rail.
+// SECURITY: as of mig 150 the freshness check is server-side. We call
+// /admin-totp-check, which validates the session token from the cookie
+// against super_admins.totp_session_token + bound to the JWT's user_id
+// + checks totp_session_expires_at. Setting the cookie value manually
+// in DevTools no longer bypasses this — the token has to match what
+// the server issued AND match this user's JWT.
 // ─────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
-import { hasFreshTotpCookie } from '../../lib/totpCookie'
+import { supabase } from '../../services/supabase'
+
+const FUNCTIONS_URL = (import.meta.env.VITE_SUPABASE_URL || 'https://zvopcktyvffcyvbjrisj.supabase.co').replace(/\/$/, '') + '/functions/v1'
+
+// Module-level cache so re-mounts in the same minute don't spam the
+// /admin-totp-check endpoint. 60 second TTL.
+let _cache = { fresh: null, expires: 0, inflight: null }
+
+export async function checkTotpFresh() {
+  const now = Date.now()
+  if (_cache.fresh !== null && now < _cache.expires) return _cache.fresh
+  if (_cache.inflight) return _cache.inflight
+
+  _cache.inflight = (async () => {
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess?.session?.access_token
+      if (!token) return false
+      const res = await fetch(`${FUNCTIONS_URL}/admin-totp-check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      if (!res.ok) return false
+      const body = await res.json().catch(() => ({}))
+      const fresh = body?.fresh === true
+      _cache.fresh = fresh
+      _cache.expires = Date.now() + 60_000
+      return fresh
+    } catch {
+      return false
+    } finally {
+      _cache.inflight = null
+    }
+  })()
+  return _cache.inflight
+}
+
+export function invalidateTotpCache() {
+  _cache = { fresh: null, expires: 0, inflight: null }
+}
 
 export default function TotpGate({ children, fallback }) {
-  const [fresh, setFresh] = useState(() => hasFreshTotpCookie())
+  const [fresh, setFresh] = useState(null) // null = checking
   const navigate = useNavigate()
   const location = useLocation()
 
+  const tick = useCallback(async () => {
+    const ok = await checkTotpFresh()
+    setFresh(ok)
+  }, [])
+
   useEffect(() => {
-    // Re-check on mount + every minute (cookie may expire while page is open)
-    const tick = () => setFresh(hasFreshTotpCookie())
     tick()
     const id = setInterval(tick, 60_000)
     return () => clearInterval(id)
-  }, [])
+  }, [tick])
+
+  if (fresh === null) {
+    // Still checking — show a tiny inline spinner so the verify form
+    // doesn't flash for users who actually have a fresh cookie.
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-5 h-5 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   if (fresh) return children
-
   if (fallback) return fallback
 
   const goVerify = () => {
@@ -67,14 +123,14 @@ export default function TotpGate({ children, fallback }) {
 }
 
 /**
- * Programmatic check. Returns true if the cookie is fresh, otherwise
- * navigates to the verify route and returns false.
+ * Programmatic check. Returns Promise<true> if the session is fresh,
+ * otherwise navigates to the verify route and returns Promise<false>.
  *
- *   import TotpGate from '.../TotpGate'
- *   if (!await TotpGate.requireFresh(navigate, location)) return
+ *   if (!(await TotpGate.requireFresh(navigate, location))) return
  */
-TotpGate.requireFresh = function (navigate, location) {
-  if (hasFreshTotpCookie()) return true
+TotpGate.requireFresh = async function (navigate, location) {
+  const ok = await checkTotpFresh()
+  if (ok) return true
   if (navigate) {
     const back = location ? (location.pathname + location.search) : '/'
     navigate(`/security/2fa?mode=verify&return=${encodeURIComponent(back)}`)

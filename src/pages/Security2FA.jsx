@@ -10,6 +10,7 @@ import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import { toast } from '../components/ui/Toast'
 import { setTotpCookie, hasFreshTotpCookie } from '../lib/totpCookie'
+import { invalidateTotpCache } from '../components/auth/TotpGate'
 
 export default function Security2FA() {
   const [params] = useSearchParams()
@@ -166,6 +167,7 @@ function EnrollCard({ onEnrolled }) {
       if (error) throw new Error(error.message || 'Verify failed')
       if (!data?.ok) throw new Error(data?.message || 'Verify failed')
       setTotpCookie(data.expires_in ?? 4 * 3600)
+      invalidateTotpCache() // tell TotpGate to recheck server-side on next access
       setStep('done')
       toast.success('2FA enabled')
       setTimeout(() => onEnrolled?.(), 600)
@@ -293,6 +295,7 @@ function VerifyCard({ onSuccess }) {
       if (error) throw new Error(error.message || 'Verify failed')
       if (!data?.ok) throw new Error(data?.message || 'Verify failed')
       setTotpCookie(data.expires_in ?? 4 * 3600)
+      invalidateTotpCache() // tell TotpGate to recheck server-side on next access
       toast.success('Verified')
       onSuccess?.()
     } catch (e) {
