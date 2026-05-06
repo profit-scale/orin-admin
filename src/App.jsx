@@ -62,6 +62,9 @@ const UsageExports = lazy(() => import('./pages/UsageExports'))
 const Failover     = lazy(() => import('./pages/Failover'))
 const Feedback     = lazy(() => import('./pages/Feedback'))
 
+// Wave 5 — customer API (mig 144-146).
+const ApiKeys = lazy(() => import('./pages/ApiKeys'))
+
 function LazyFallback() {
   return (
     <div
@@ -197,6 +200,8 @@ function AdminApp({ user, signOut }) {
           <Route path="/usage-exports" element={<L Component={UsageExports} />} />
           <Route path="/failover"      element={<L Component={Failover} />} />
           <Route path="/feedback"      element={<L Component={Feedback} />} />
+          {/* Wave 5 — customer API oversight (mig 144-146) */}
+          <Route path="/api-keys"      element={<L Component={ApiKeys} />} />
           {/*
             New routes from the parallel Wave 4 agent should be inserted
             ABOVE this line. The catch-all stays last.

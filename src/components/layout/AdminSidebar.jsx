@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Flame,
   FileSpreadsheet,
+  KeyRound,
 } from 'lucide-react'
 
 const navSections = [
@@ -72,6 +73,7 @@ const navSections = [
       { to: '/incidents',   label: 'Incidents',       icon: Megaphone },
       { to: '/demo',        label: 'Demo orgs',       icon: Server },
       { to: '/webhooks',    label: 'Webhooks',        icon: Webhook },
+      { to: '/api-keys',    label: 'Customer API',    icon: KeyRound },
       { to: '/marketplace', label: 'Marketplace',     icon: Store },
       { to: '/failover',    label: 'Failover',        icon: Globe },
       { to: '/feedback',    label: 'Feedback',        icon: MessageCircle },
