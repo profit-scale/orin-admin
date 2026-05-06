@@ -39,6 +39,14 @@ const Onboarding  = lazy(() => import('./pages/Onboarding'))
 const Quotas      = lazy(() => import('./pages/Quotas'))
 const EdgeLogs    = lazy(() => import('./pages/EdgeLogs'))
 
+// Wave 3 — polish + scale.
+const Experiments = lazy(() => import('./pages/Experiments'))
+const Cohort      = lazy(() => import('./pages/Cohort'))
+const Gdpr        = lazy(() => import('./pages/Gdpr'))
+const Demo        = lazy(() => import('./pages/Demo'))
+const Incidents   = lazy(() => import('./pages/Incidents'))
+const Security    = lazy(() => import('./pages/Security'))
+
 function LazyFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -156,6 +164,13 @@ export default function App() {
                   <Route path="/onboarding"  element={<L Component={Onboarding} />} />
                   <Route path="/quotas"      element={<L Component={Quotas} />} />
                   <Route path="/edge-logs"   element={<L Component={EdgeLogs} />} />
+                  {/* Wave 3 */}
+                  <Route path="/experiments" element={<L Component={Experiments} />} />
+                  <Route path="/cohort"      element={<L Component={Cohort} />} />
+                  <Route path="/gdpr"        element={<L Component={Gdpr} />} />
+                  <Route path="/demo"        element={<L Component={Demo} />} />
+                  <Route path="/incidents"   element={<L Component={Incidents} />} />
+                  <Route path="/security"    element={<L Component={Security} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminShell>

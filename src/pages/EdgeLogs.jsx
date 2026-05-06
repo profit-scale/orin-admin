@@ -6,7 +6,11 @@ import {
   RefreshCcw,
   Search,
   X,
+  ChevronDown,
+  ChevronRight,
+  Bell,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
@@ -29,13 +33,52 @@ function StatusPill({ code }) {
   return <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-mono ${cls}`}>{code}</span>
 }
 
+// percentile from a sorted array
+function pct(sortedArr, q) {
+  if (!sortedArr.length) return null
+  const idx = Math.min(sortedArr.length - 1, Math.floor(sortedArr.length * q))
+  return sortedArr[idx]
+}
+
+// Group up to 24 hourly buckets of (p50, p95, p99) durations from the last
+// 24h of rows for one fn name.
+function bucketHourly(rows, fnName) {
+  const now = new Date()
+  const buckets = Array.from({ length: 24 }).map((_, i) => {
+    const end = new Date(now.getTime() - (i) * 3600 * 1000)
+    const start = new Date(end.getTime() - 3600 * 1000)
+    return { start, end, durs: [] }
+  }).reverse()
+
+  for (const r of rows) {
+    if (fnName && r.function_name !== fnName) continue
+    const t = new Date(r.called_at).getTime()
+    const idx = buckets.findIndex((b) => t >= b.start.getTime() && t < b.end.getTime())
+    if (idx === -1) continue
+    if (r.duration_ms != null) buckets[idx].durs.push(Number(r.duration_ms))
+  }
+
+  return buckets.map((b) => {
+    const sorted = b.durs.slice().sort((a, b2) => a - b2)
+    return {
+      label: b.start.toLocaleTimeString('en-US', { hour: 'numeric' }),
+      start: b.start,
+      count: b.durs.length,
+      p50: pct(sorted, 0.5),
+      p95: pct(sorted, 0.95),
+      p99: pct(sorted, 0.99),
+    }
+  })
+}
+
 export default function EdgeLogs() {
   const [tab, setTab]           = useState('history') // 'live' | 'history'
   const [windowKey, setWindow]  = useState('24h')
   const [fnFilter, setFnFilter] = useState('')
-  const [statusFilter, setStatus] = useState('all')   // 'all' | 'errors' | 'success'
+  const [statusFilter, setStatus] = useState('all')
   const [search, setSearch]     = useState('')
   const [rows, setRows]         = useState([])
+  const [chartRows, setChartRows] = useState([])  // Always last-24h for the chart, regardless of windowKey
   const [summary, setSummary]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [missing, setMissing]   = useState(false)
@@ -46,10 +89,15 @@ export default function EdgeLogs() {
     return new Date(Date.now() - (w?.hours || 24) * 3600 * 1000).toISOString()
   }, [windowKey])
 
+  const since24h = useMemo(() =>
+    new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    []
+  )
+
   const refresh = useCallback(async () => {
     setLoading(true)
     setMissing(false)
-    const [logRes, sumRes] = await Promise.all([
+    const [logRes, sumRes, chartRes] = await Promise.all([
       supabase.rpc('admin_edge_invocations', {
         p_limit: 200, p_offset: 0,
         p_function_name: fnFilter || null,
@@ -58,6 +106,14 @@ export default function EdgeLogs() {
         p_search: search.trim() || null,
       }),
       supabase.rpc('admin_edge_invocations_summary', { p_hours: 24 }),
+      // Pull a wider-net 500 rows for the past 24h for the chart only.
+      supabase.rpc('admin_edge_invocations', {
+        p_limit: 500, p_offset: 0,
+        p_function_name: fnFilter || null,
+        p_status: null,
+        p_since: since24h, p_until: null,
+        p_search: null,
+      }),
     ])
     if (logRes.error) {
       if (isMissingFunction(logRes.error)) setMissing(true)
@@ -71,8 +127,11 @@ export default function EdgeLogs() {
     } else {
       setSummary(Array.isArray(sumRes.data) ? sumRes.data : [])
     }
+    if (!chartRes.error) {
+      setChartRows(Array.isArray(chartRes.data) ? chartRes.data : [])
+    }
     setLoading(false)
-  }, [fnFilter, statusFilter, since, search])
+  }, [fnFilter, statusFilter, since, search, since24h])
 
   useEffect(() => { refresh() }, [refresh])
 
@@ -82,6 +141,39 @@ export default function EdgeLogs() {
     const id = setInterval(refresh, 5000)
     return () => clearInterval(id)
   }, [tab, refresh])
+
+  // Error-rate alert: any function with >5% error rate in last 15min.
+  // We compute this client-side from the rows we already fetched (filter to
+  // last 15 min). If the global window doesn't include the last 15min we
+  // skip the banner.
+  const errorRibbon = useMemo(() => {
+    const since15 = Date.now() - 15 * 60 * 1000
+    const recent = chartRows.filter((r) => new Date(r.called_at).getTime() >= since15)
+    if (recent.length < 5) return null
+    const byFn = new Map()
+    for (const r of recent) {
+      const k = r.function_name
+      if (!byFn.has(k)) byFn.set(k, { total: 0, errors: 0 })
+      byFn.get(k).total++
+      if (Number(r.status_code || 0) >= 400) byFn.get(k).errors++
+    }
+    const offenders = Array.from(byFn.entries())
+      .filter(([, v]) => v.total >= 5 && v.errors / v.total > 0.05)
+      .map(([k, v]) => ({ fn: k, errors: v.errors, total: v.total, pct: (v.errors / v.total) * 100 }))
+    return offenders.length ? offenders : null
+  }, [chartRows])
+
+  // Chart: hourly p50/p95/p99 for either the focused fn or aggregate.
+  const chartBuckets = useMemo(() => bucketHourly(chartRows, fnFilter || null), [chartRows, fnFilter])
+  const chartMax = useMemo(() => {
+    const all = []
+    for (const b of chartBuckets) {
+      if (b.p50 != null) all.push(b.p50)
+      if (b.p95 != null) all.push(b.p95)
+      if (b.p99 != null) all.push(b.p99)
+    }
+    return all.length ? Math.max(...all) : 100
+  }, [chartBuckets])
 
   return (
     <div className="space-y-6 max-w-[1500px]">
@@ -101,6 +193,25 @@ export default function EdgeLogs() {
         <Banner tone="warning" title="Migration 124 not yet applied">
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">124_edgefn_telemetry.sql</code>.
         </Banner>
+      )}
+
+      {errorRibbon && errorRibbon.length > 0 && (
+        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 flex items-start gap-3">
+          <Bell className="w-4 h-4 text-rose-300 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <div className="text-xs font-semibold text-rose-100 mb-0.5">
+              {errorRibbon.length} function{errorRibbon.length > 1 ? 's' : ''} with &gt;5% error rate (last 15 min)
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {errorRibbon.map((o) => (
+                <button key={o.fn} onClick={() => { setFnFilter(o.fn); setStatus('errors') }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-[11px] font-mono text-rose-100">
+                  {o.fn} · {o.pct.toFixed(1)}% ({o.errors}/{o.total})
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Per-fn summary cards */}
@@ -134,6 +245,25 @@ export default function EdgeLogs() {
             )
           })
         )}
+      </div>
+
+      {/* Hourly p50/p95/p99 chart for the focused function (or all) */}
+      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">
+              Latency percentiles · last 24h
+              {fnFilter && <span className="ml-2 font-mono text-[11px] text-indigo-300">{fnFilter}</span>}
+            </h3>
+            <p className="text-[11px] text-slate-500">Hourly buckets · p50 / p95 / p99 in ms</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-1 bg-indigo-400 rounded" /> p50</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-1 bg-amber-400 rounded" /> p95</span>
+            <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-1 bg-rose-400 rounded" /> p99</span>
+          </div>
+        </div>
+        <PercentileChart buckets={chartBuckets} maxMs={chartMax} />
       </div>
 
       {/* Filters */}
@@ -192,7 +322,8 @@ export default function EdgeLogs() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">When</th>
+                  <th className="text-left font-medium px-5 py-2.5"></th>
+                  <th className="text-left font-medium px-3 py-2.5">When</th>
                   <th className="text-left font-medium px-3 py-2.5">Function</th>
                   <th className="text-left font-medium px-3 py-2.5">Status</th>
                   <th className="text-right font-medium px-3 py-2.5">Duration</th>
@@ -202,22 +333,7 @@ export default function EdgeLogs() {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} onClick={() => setDetail(r)}
-                    className="border-b border-slate-800/40 last:border-0 hover:bg-slate-800/30 cursor-pointer">
-                    <td className="px-5 py-2 text-[11px] text-slate-400 whitespace-nowrap">
-                      {new Date(r.called_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', second:'2-digit' })}
-                      <span className="text-slate-600 ml-2">{new Date(r.called_at).toLocaleDateString()}</span>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[11px] text-indigo-200">{r.function_name}</td>
-                    <td className="px-3 py-2"><StatusPill code={r.status_code} /></td>
-                    <td className="px-3 py-2 text-right tabular-nums text-slate-400">{r.duration_ms != null ? `${r.duration_ms}ms` : '—'}</td>
-                    <td className="px-3 py-2 text-[11px] text-slate-400 truncate max-w-[400px]">
-                      {r.error
-                        ? <span className="text-rose-300">{r.error.split('\n')[0]}</span>
-                        : <span className="font-mono text-slate-500">{r.request_id || ''}</span>}
-                    </td>
-                    <td className="px-5 py-2 text-right text-[11px] text-slate-500 font-mono">{r.ip_address || '—'}</td>
-                  </tr>
+                  <ExpandableRow key={r.id} row={r} onOpen={() => setDetail(r)} />
                 ))}
               </tbody>
             </table>
@@ -227,6 +343,132 @@ export default function EdgeLogs() {
 
       <DetailModal row={detail} onClose={() => setDetail(null)} />
     </div>
+  )
+}
+
+function PercentileChart({ buckets, maxMs }) {
+  const W = 800
+  const H = 160
+  const PAD = { l: 36, r: 12, t: 12, b: 22 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+  const stepX = innerW / Math.max(buckets.length - 1, 1)
+  const yFor = (v) => PAD.t + innerH - (Math.min(v, maxMs) / Math.max(maxMs, 1)) * innerH
+
+  // Three lines + bars for "count" overlay at the bottom.
+  const lineFor = (key, color) => {
+    const pts = []
+    for (let i = 0; i < buckets.length; i++) {
+      const v = buckets[i][key]
+      if (v == null) continue
+      pts.push(`${PAD.l + i * stepX},${yFor(v)}`)
+    }
+    if (!pts.length) return null
+    return <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" />
+  }
+  const dotsFor = (key, color) => buckets.map((b, i) => b[key] != null
+    ? <circle key={`${key}-${i}`} cx={PAD.l + i * stepX} cy={yFor(b[key])} r={2} fill={color} />
+    : null
+  )
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[180px]" preserveAspectRatio="none">
+      {/* axes */}
+      <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="rgba(148,163,184,0.2)" />
+      <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH} stroke="rgba(148,163,184,0.2)" />
+      {/* y-axis ticks */}
+      {[0.25, 0.5, 0.75, 1].map((t) => {
+        const y = PAD.t + innerH - innerH * t
+        return (
+          <g key={t}>
+            <line x1={PAD.l} x2={PAD.l + innerW} y1={y} y2={y} stroke="rgba(148,163,184,0.07)" />
+            <text x={PAD.l - 4} y={y + 3} textAnchor="end" fontSize="9" fill="rgb(148,163,184)">
+              {Math.round(maxMs * t)}ms
+            </text>
+          </g>
+        )
+      })}
+      {/* x-axis labels: every 4th hour */}
+      {buckets.map((b, i) => i % 4 === 0 ? (
+        <text key={i}
+          x={PAD.l + i * stepX} y={PAD.t + innerH + 14}
+          fontSize="9" fill="rgb(148,163,184)" textAnchor="middle">{b.label}</text>
+      ) : null)}
+      {/* lines */}
+      {lineFor('p50', '#818cf8')}
+      {lineFor('p95', '#fbbf24')}
+      {lineFor('p99', '#fb7185')}
+      {dotsFor('p50', '#818cf8')}
+      {dotsFor('p95', '#fbbf24')}
+      {dotsFor('p99', '#fb7185')}
+    </svg>
+  )
+}
+
+function ExpandableRow({ row, onOpen }) {
+  const [open, setOpen] = useState(false)
+  const dur = row.duration_ms != null ? `${row.duration_ms}ms` : '—'
+  return (
+    <>
+      <tr className="border-b border-slate-800/40 hover:bg-slate-800/30 cursor-pointer">
+        <td className="px-3 py-2 w-7" onClick={() => setOpen((v) => !v)}>
+          {open ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+        </td>
+        <td className="px-3 py-2 text-[11px] text-slate-400 whitespace-nowrap" onClick={onOpen}>
+          {new Date(row.called_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', second:'2-digit' })}
+          <span className="text-slate-600 ml-2">{new Date(row.called_at).toLocaleDateString()}</span>
+        </td>
+        <td className="px-3 py-2 font-mono text-[11px] text-indigo-200" onClick={onOpen}>{row.function_name}</td>
+        <td className="px-3 py-2" onClick={onOpen}><StatusPill code={row.status_code} /></td>
+        <td className="px-3 py-2 text-right tabular-nums text-slate-400" onClick={onOpen}>{dur}</td>
+        <td className="px-3 py-2 text-[11px] text-slate-400 truncate max-w-[400px]" onClick={onOpen}>
+          {row.error
+            ? <span className="text-rose-300">{row.error.split('\n')[0]}</span>
+            : <span className="font-mono text-slate-500">{row.request_id || ''}</span>}
+        </td>
+        <td className="px-5 py-2 text-right text-[11px] text-slate-500 font-mono" onClick={onOpen}>{row.ip_address || '—'}</td>
+      </tr>
+      {open && (
+        <tr className="bg-slate-950/40 border-b border-slate-800/40">
+          <td></td>
+          <td colSpan={6} className="px-3 py-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">request_id</div>
+                <code className="font-mono text-slate-200 break-all">{row.request_id || '—'}</code>
+                <div className="text-[10px] text-slate-500 mt-1">grep this in the Supabase fn dashboard logs.</div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Org / user</div>
+                <div className="font-mono text-[10px] text-slate-300 break-all">
+                  {row.organization_id ? <Link to={`/companies/${row.organization_id}`} className="text-indigo-300 hover:underline">{row.organization_id}</Link> : '—'}
+                </div>
+                <div className="font-mono text-[10px] text-slate-500 break-all">{row.user_id || ''}</div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Stages</div>
+                <div className="text-slate-300">
+                  Total {dur}
+                </div>
+                {row.metadata?.stages && (
+                  <div className="font-mono text-[10px] text-slate-400 mt-1">
+                    {Object.entries(row.metadata.stages).map(([k, v]) => (
+                      <div key={k}>{k}: {String(v)}ms</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {row.error && (
+              <div className="mt-3">
+                <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Error</div>
+                <pre className="p-2 rounded-md bg-slate-950 border border-rose-500/30 text-[11px] text-rose-200 overflow-auto max-h-40 whitespace-pre-wrap">{row.error}</pre>
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 

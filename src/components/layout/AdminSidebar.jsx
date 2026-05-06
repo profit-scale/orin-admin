@@ -23,6 +23,10 @@ import {
   Route,
   ShieldCheck,
   Activity,
+  Beaker,
+  Grid3x3,
+  ShieldX,
+  Server,
 } from 'lucide-react'
 
 const navSections = [
@@ -39,23 +43,39 @@ const navSections = [
   {
     label: 'Insights',
     items: [
-      { to: '/revenue',     label: 'Revenue',      icon: TrendingUp },
-      { to: '/payments',    label: 'Payments',     icon: AlertCircle },
-      { to: '/trials',      label: 'Trials',       icon: Hourglass },
-      { to: '/storage',     label: 'Storage',      icon: HardDrive },
-      { to: '/flags',       label: 'Feature flags', icon: ToggleLeft },
-      { to: '/campaigns',   label: 'Campaigns',    icon: Mail },
-      { to: '/onboarding',  label: 'Onboarding',   icon: Route },
-      { to: '/quotas',      label: 'Plan quotas',  icon: ShieldCheck },
-      { to: '/edge-logs',   label: 'Edge logs',    icon: Activity },
+      { to: '/revenue',     label: 'Revenue',         icon: TrendingUp },
+      { to: '/payments',    label: 'Payments',        icon: AlertCircle },
+      { to: '/trials',      label: 'Trials',          icon: Hourglass },
+      { to: '/storage',     label: 'Storage',         icon: HardDrive },
+      { to: '/flags',       label: 'Feature flags',   icon: ToggleLeft },
+      { to: '/campaigns',   label: 'Campaigns',       icon: Mail },
+      { to: '/onboarding',  label: 'Onboarding',      icon: Route },
+      { to: '/quotas',      label: 'Plan quotas',     icon: ShieldCheck },
+      { to: '/edge-logs',   label: 'Edge logs',       icon: Activity },
+      { to: '/experiments', label: 'AI experiments',  icon: Beaker },
+      { to: '/cohort',      label: 'Cohort retention',icon: Grid3x3 },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { to: '/gdpr',        label: 'GDPR',            icon: ShieldX },
+      { to: '/incidents',   label: 'Incidents',       icon: Megaphone },
+      { to: '/demo',        label: 'Demo orgs',       icon: Server },
+    ],
+  },
+  {
+    label: 'Security',
+    items: [
+      { to: '/audit',       label: 'Audit log',       icon: ClipboardList },
+      { to: '/auth-log',    label: 'Auth events',     icon: ShieldAlert },
+      { to: '/security',    label: 'Threats',         icon: ShieldAlert },
     ],
   },
   {
     label: 'Tools',
     items: [
       { to: '/search',         label: 'Search',         icon: SearchIcon },
-      { to: '/audit',          label: 'Audit log',      icon: ClipboardList },
-      { to: '/auth-log',       label: 'Auth events',    icon: ShieldAlert },
       { to: '/announcements',  label: 'Announcements',  icon: Megaphone },
       { to: '/sql',            label: 'SQL runner',     icon: Terminal },
       { to: '/api-tester',     label: 'API tester',     icon: Send },
