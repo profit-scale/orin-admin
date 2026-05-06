@@ -20,6 +20,31 @@ import AdminAuthCallback from './pages/AdminAuthCallback'
 // dashboard route.
 const Observability = lazy(() => import('./pages/Observability'))
 
+// Wave 1 — admin tools. All lazy so the main dashboard bundle stays small.
+const AuditLog       = lazy(() => import('./pages/AuditLog'))
+const CrossSearch    = lazy(() => import('./pages/CrossSearch'))
+const Announcements  = lazy(() => import('./pages/Announcements'))
+const SqlRunner      = lazy(() => import('./pages/SqlRunner'))
+const ApiTester      = lazy(() => import('./pages/ApiTester'))
+const AuthLog        = lazy(() => import('./pages/AuthLog'))
+
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+    </div>
+  )
+}
+function L({ Component }) {
+  // eslint-disable-next-line no-unused-vars -- React component capitalisation lint quirk
+  const C = Component
+  return (
+    <Suspense fallback={<LazyFallback />}>
+      <C />
+    </Suspense>
+  )
+}
+
 // Shown when VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY are missing — most
 // commonly on a fresh Netlify deploy where the env vars haven't been set.
 // Replaces the previous behaviour of throwing inside createClient and
@@ -104,6 +129,12 @@ export default function App() {
                   />
                   <Route path="/ai" element={<AI />} />
                   <Route path="/ai/usage" element={<AIUsage />} />
+                  <Route path="/audit"          element={<L Component={AuditLog} />} />
+                  <Route path="/search"         element={<L Component={CrossSearch} />} />
+                  <Route path="/announcements"  element={<L Component={Announcements} />} />
+                  <Route path="/sql"            element={<L Component={SqlRunner} />} />
+                  <Route path="/api-tester"     element={<L Component={ApiTester} />} />
+                  <Route path="/auth-log"       element={<L Component={AuthLog} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminShell>

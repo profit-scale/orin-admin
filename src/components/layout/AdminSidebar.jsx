@@ -8,6 +8,12 @@ import {
   Sparkles,
   BarChart3,
   Bug,
+  ClipboardList,
+  Search as SearchIcon,
+  Megaphone,
+  Terminal,
+  Send,
+  ShieldAlert,
 } from 'lucide-react'
 
 const navSections = [
@@ -19,6 +25,17 @@ const navSections = [
       { to: '/billing', label: 'Billing', icon: CreditCard },
       { to: '/perf', label: 'Perf', icon: Gauge },
       { to: '/observability', label: 'Observability', icon: Bug },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [
+      { to: '/search',         label: 'Search',         icon: SearchIcon },
+      { to: '/audit',          label: 'Audit log',      icon: ClipboardList },
+      { to: '/auth-log',       label: 'Auth events',    icon: ShieldAlert },
+      { to: '/announcements',  label: 'Announcements',  icon: Megaphone },
+      { to: '/sql',            label: 'SQL runner',     icon: Terminal },
+      { to: '/api-tester',     label: 'API tester',     icon: Send },
     ],
   },
   {
@@ -46,7 +63,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-4">
+      <nav className="flex-1 px-3 space-y-4 overflow-y-auto">
         {navSections.map((section, sIdx) => (
           <div key={sIdx} className="space-y-1">
             {section.label && (

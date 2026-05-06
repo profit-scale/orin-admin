@@ -20,6 +20,7 @@ import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import MiniLineChart from '../components/charts/MiniLineChart'
+import AIUsageLive from '../components/admin/AIUsageLive'
 
 // ────────────────────────────────────────────────────────────────────
 // formatters
@@ -757,6 +758,9 @@ export default function AIUsage() {
       >
         <OrgUsageTable rows={orgs} loading={orgsLoading} />
       </SectionCard>
+
+      {/* Live feed — realtime ai_usage stream */}
+      <AIUsageLive />
 
       {/* Two-column: surface breakdown + cost trend */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

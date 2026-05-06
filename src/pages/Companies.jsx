@@ -68,6 +68,29 @@ function formatCurrency(n) {
   }).format(n)
 }
 
+// Tiny health bucket pill rendered next to the org name. Hidden when the
+// snapshot is missing (mig 118 not deployed or org never computed yet).
+const HEALTH_TONE = {
+  thriving: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30',
+  active:   'bg-sky-500/15 text-sky-200 border-sky-500/30',
+  idle:     'bg-amber-500/15 text-amber-200 border-amber-500/30',
+  at_risk:  'bg-orange-500/15 text-orange-200 border-orange-500/30',
+  ghost:    'bg-rose-500/15 text-rose-200 border-rose-500/30',
+}
+
+function HealthChip({ h }) {
+  if (!h) return null
+  const tone = HEALTH_TONE[h.bucket] || 'bg-slate-700/30 text-slate-300 border-slate-700/60'
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] uppercase tracking-wider border ${tone}`}
+      title={`Health ${h.score?.toFixed?.(1) ?? '—'} · ${h.bucket}`}
+    >
+      {h.bucket?.replace('_', ' ')}
+    </span>
+  )
+}
+
 function StatusPill({ status }) {
   const map = {
     active:   'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -164,6 +187,23 @@ export default function Companies() {
   const [loading, setLoading] = useState(true)
   const [missingMigrations, setMissingMigrations] = useState(false)
   const [error, setError] = useState(null)
+
+  // Health snapshot map: org_id -> { score, bucket }. Best-effort: we
+  // tolerate missing migration 118 (rendering no chip).
+  const [healthMap, setHealthMap] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('admin_org_health_latest')
+        if (cancelled || error) return
+        const m = {}
+        for (const r of data || []) m[r.organization_id] = { score: Number(r.score), bucket: r.bucket }
+        setHealthMap(m)
+      } catch { /* swallow */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // reset page when search/sort changes
   useEffect(() => { setPage(0) }, [debouncedSearch, sort])
@@ -340,13 +380,16 @@ export default function Companies() {
                   className="border-b border-slate-800/40 last:border-0 hover:bg-slate-800/30 transition cursor-pointer group"
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      to={`/companies/${o.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-slate-100 font-medium group-hover:text-indigo-300 transition"
-                    >
-                      {o.name || o.slug || o.id}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/companies/${o.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-slate-100 font-medium group-hover:text-indigo-300 transition"
+                      >
+                        {o.name || o.slug || o.id}
+                      </Link>
+                      <HealthChip h={healthMap[o.id]} />
+                    </div>
                     {o.slug && o.name && (
                       <div className="text-[11px] text-slate-500">{o.slug}</div>
                     )}

@@ -23,6 +23,10 @@ import RoleBadge from '../components/admin/RoleBadge'
 import StatusBadge from '../components/admin/StatusBadge'
 import ImpersonateButton from '../components/admin/ImpersonateButton'
 import UsageTab from '../components/company/UsageTab'
+import OrgFreezeCard from '../components/company/OrgFreezeCard'
+import OrgBudgetCard from '../components/company/OrgBudgetCard'
+import ForceActionsCard from '../components/company/ForceActionsCard'
+import HealthCard from '../components/company/HealthCard'
 
 const FN_NOT_FOUND_CODES = new Set(['42883', 'PGRST202'])
 const APP_URL = 'https://app.orinsuite.com'
@@ -176,12 +180,13 @@ export default function CompanyDetail() {
   const adminActions = detail?.recent_admin_actions || []
 
   const tabs = useMemo(() => ([
-    { id: 'usage',    label: 'Usage' },
-    { id: 'members',  label: 'Members',  count: members.length || undefined },
-    { id: 'activity', label: 'Activity' },
-    { id: 'billing',  label: 'Billing',  count: invoices.length || undefined },
-    { id: 'ai',       label: 'AI' },
-    { id: 'settings', label: 'Settings' },
+    { id: 'usage',      label: 'Usage' },
+    { id: 'members',    label: 'Members',  count: members.length || undefined },
+    { id: 'activity',   label: 'Activity' },
+    { id: 'operations', label: 'Operations' },
+    { id: 'billing',    label: 'Billing',  count: invoices.length || undefined },
+    { id: 'ai',         label: 'AI' },
+    { id: 'settings',   label: 'Settings' },
   ]), [members.length, invoices.length])
 
   if (loading) {
@@ -258,6 +263,9 @@ export default function CompanyDetail() {
         {activeTab === 'activity' && (
           <ActivityTab adminActions={adminActions} invoices={invoices} />
         )}
+        {activeTab === 'operations' && (
+          <OperationsTab orgId={id} org={org} onChanged={load} />
+        )}
         {activeTab === 'billing' && (
           <BillingTab orgId={id} sub={sub} invoices={invoices} onRefresh={load} />
         )}
@@ -301,6 +309,14 @@ function CompanyHeader({ org, sub, members }) {
                 <PlanBadge plan={sub?.plan_label || sub?.plan} status={sub?.status} />
               )}
               {sub?.status && <StatusBadge status={sub.status} />}
+              {org?.frozen_at && (
+                <span
+                  className="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium tracking-wide bg-rose-500/15 text-rose-200 border-rose-500/30"
+                  title={org?.frozen_reason || 'Tenancy frozen'}
+                >
+                  Frozen
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
               {org?.slug ? `${org.slug} · ` : ''}{org?.id}
@@ -1397,6 +1413,19 @@ function UsageBar({ label, used, limit, pct, format }) {
           style={{ width: `${pct == null ? 0 : Math.max(pct, used > 0 ? 4 : 0)}%` }}
         />
       </div>
+    </div>
+  )
+}
+
+// ---------- operations tab ----------
+
+function OperationsTab({ orgId, org, onChanged }) {
+  return (
+    <div className="space-y-6">
+      <OrgFreezeCard org={org} onChanged={onChanged} />
+      <HealthCard orgId={orgId} />
+      <OrgBudgetCard orgId={orgId} />
+      <ForceActionsCard orgId={orgId} />
     </div>
   )
 }
