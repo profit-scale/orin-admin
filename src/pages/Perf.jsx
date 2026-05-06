@@ -221,18 +221,30 @@ export default function Perf() {
   const [error, setError] = useState(null)
   const [refreshedAt, setRefreshedAt] = useState(null)
 
+  // Wave 2 — extended perf intel.
+  const [missingIdx, setMissingIdx] = useState([])
+  const [cronJobs, setCronJobs]     = useState([])
+  const [realtime, setRealtime]     = useState(null)
+  const [bloat, setBloat]           = useState([])
+  const [extLoading, setExtLoading] = useState(true)
+
   const refresh = useCallback(async () => {
     setError(null)
     setSlowLoading(true)
     setFrequentLoading(true)
     setHealthLoading(true)
     setTablesLoading(true)
+    setExtLoading(true)
 
-    const [slowRes, freqRes, healthRes, tablesRes] = await Promise.all([
+    const [slowRes, freqRes, healthRes, tablesRes, idxRes, cronRes, rtRes, bloatRes] = await Promise.all([
       supabase.rpc('admin_top_slow_queries', { p_limit: 20 }),
       supabase.rpc('admin_top_frequent_queries', { p_limit: 10 }),
       supabase.rpc('admin_db_health'),
       supabase.rpc('admin_largest_tables', { p_limit: 10 }),
+      supabase.rpc('admin_suspected_missing_indexes'),
+      supabase.rpc('admin_cron_status'),
+      supabase.rpc('admin_realtime_stats'),
+      supabase.rpc('admin_db_size_and_bloat'),
     ])
 
     // ── slow
@@ -289,6 +301,13 @@ export default function Perf() {
       setTables(Array.isArray(tablesRes.data) ? tablesRes.data : [])
     }
     setTablesLoading(false)
+
+    // ── Wave 2 RPCs (don't block the main view if they're missing)
+    setMissingIdx(idxRes.error ? [] : (Array.isArray(idxRes.data) ? idxRes.data : []))
+    setCronJobs(cronRes.error ? [] : (Array.isArray(cronRes.data) ? cronRes.data : []))
+    setRealtime(rtRes.error ? null : rtRes.data)
+    setBloat(bloatRes.error ? [] : (Array.isArray(bloatRes.data) ? bloatRes.data : []))
+    setExtLoading(false)
 
     setRefreshedAt(new Date())
   }, [error])
@@ -476,6 +495,147 @@ export default function Perf() {
           <LargestTables rows={tables} loading={tablesLoading} />
         </SectionCard>
       </div>
+
+      {/* Wave 2: Missing indexes + cron + realtime */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionCard
+          title="Suspected missing indexes"
+          subtitle="Tables with high seq_scan / index_scan ratio"
+        >
+          {extLoading ? (
+            <div className="space-y-2">
+              {Array.from({length:3}).map((_,i)=>(<Skeleton key={i} width="100%" height={28} rounded="rounded" />))}
+            </div>
+          ) : missingIdx.length === 0 ? (
+            <div className="text-xs text-slate-500 italic py-4">No problem tables — every public table is indexed reasonably.</div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-800/60">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-950/90">
+                  <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="text-left font-medium px-3 py-2">Table</th>
+                    <th className="text-right font-medium px-3 py-2">Rows</th>
+                    <th className="text-right font-medium px-3 py-2">Seq %</th>
+                    <th className="text-left font-medium px-3 py-2">Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingIdx.map((r, i) => (
+                    <tr key={i} className="border-t border-slate-800/40">
+                      <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{r.table_name}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-400">{Number(r.estimated_rows).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-300">{r.seq_scan_pct != null ? `${Number(r.seq_scan_pct).toFixed(0)}%` : '—'}</td>
+                      <td className="px-3 py-2 text-[11px] text-slate-300">{r.recommendation}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="pg_cron jobs"
+          subtitle="Scheduled background work"
+          action={realtime ? (
+            <span className="text-[11px] text-slate-500">
+              Realtime: <span className={realtime.replicas > 0 ? 'text-emerald-300' : 'text-slate-400'}>{realtime.replicas} replicas</span>
+            </span>
+          ) : null}
+        >
+          {extLoading ? (
+            <div className="space-y-2">
+              {Array.from({length:3}).map((_,i)=>(<Skeleton key={i} width="100%" height={28} rounded="rounded" />))}
+            </div>
+          ) : cronJobs.length === 0 ? (
+            <div className="text-xs text-slate-500 italic py-4">No pg_cron jobs scheduled (or pg_cron not installed).</div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-800/60">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-950/90">
+                  <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="text-left font-medium px-3 py-2">Job</th>
+                    <th className="text-left font-medium px-3 py-2">Schedule</th>
+                    <th className="text-left font-medium px-3 py-2">Last run</th>
+                    <th className="text-left font-medium px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cronJobs.map((j) => {
+                    const ok = j.last_run_status === 'succeeded'
+                    const failed = j.last_run_status && !ok
+                    return (
+                      <tr key={j.jobid} className="border-t border-slate-800/40">
+                        <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{j.jobname}</td>
+                        <td className="px-3 py-2 font-mono text-[10px] text-slate-400">{j.schedule}</td>
+                        <td className="px-3 py-2 text-[11px] text-slate-400">
+                          {j.last_run_started_at ? new Date(j.last_run_started_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '—'}
+                        </td>
+                        <td className="px-3 py-2">
+                          {j.last_run_status ? (
+                            <span className={[
+                              'inline-flex px-2 py-0.5 rounded-full border text-[10px]',
+                              ok ? 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' :
+                              failed ? 'bg-rose-500/15 text-rose-200 border-rose-500/30' :
+                              'bg-slate-500/15 text-slate-300 border-slate-500/30',
+                            ].join(' ')}>{j.last_run_status}</span>
+                          ) : <span className="text-slate-600 text-[10px]">never run</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Bloat + DB size */}
+      <SectionCard
+        title="Database size + per-table bloat estimate"
+        subtitle={extLoading || !bloat[0]
+          ? 'Total on-disk size + dead-tuple estimate.'
+          : `DB size: ${bloat[0].db_size_pretty}`}
+      >
+        {extLoading ? (
+          <div className="space-y-2">
+            {Array.from({length:5}).map((_,i)=>(<Skeleton key={i} width="100%" height={28} rounded="rounded" />))}
+          </div>
+        ) : bloat.length === 0 ? (
+          <div className="text-xs text-slate-500 italic py-4">No table bloat data.</div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-800/60">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-950/90">
+                <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                  <th className="text-left font-medium px-3 py-2">Table</th>
+                  <th className="text-right font-medium px-3 py-2">Heap</th>
+                  <th className="text-right font-medium px-3 py-2">Total</th>
+                  <th className="text-right font-medium px-3 py-2">Bloat</th>
+                  <th className="text-right font-medium px-3 py-2">Bloat %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bloat.map((r, i) => (
+                  <tr key={i} className="border-t border-slate-800/40">
+                    <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{r.table_name}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-400">{r.table_size}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.total_size}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-400">{r.bloat_pretty}</td>
+                    <td className={[
+                      'px-3 py-2 text-right tabular-nums',
+                      Number(r.bloat_pct) >= 30 ? 'text-rose-300' :
+                      Number(r.bloat_pct) >= 15 ? 'text-amber-300' :
+                      'text-slate-400',
+                    ].join(' ')}>{Number(r.bloat_pct).toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
     </div>
   )
 }

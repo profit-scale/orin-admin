@@ -14,6 +14,15 @@ import {
   Terminal,
   Send,
   ShieldAlert,
+  TrendingUp,
+  AlertCircle,
+  Hourglass,
+  HardDrive,
+  ToggleLeft,
+  Mail,
+  Route,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react'
 
 const navSections = [
@@ -25,6 +34,20 @@ const navSections = [
       { to: '/billing', label: 'Billing', icon: CreditCard },
       { to: '/perf', label: 'Perf', icon: Gauge },
       { to: '/observability', label: 'Observability', icon: Bug },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { to: '/revenue',     label: 'Revenue',      icon: TrendingUp },
+      { to: '/payments',    label: 'Payments',     icon: AlertCircle },
+      { to: '/trials',      label: 'Trials',       icon: Hourglass },
+      { to: '/storage',     label: 'Storage',      icon: HardDrive },
+      { to: '/flags',       label: 'Feature flags', icon: ToggleLeft },
+      { to: '/campaigns',   label: 'Campaigns',    icon: Mail },
+      { to: '/onboarding',  label: 'Onboarding',   icon: Route },
+      { to: '/quotas',      label: 'Plan quotas',  icon: ShieldCheck },
+      { to: '/edge-logs',   label: 'Edge logs',    icon: Activity },
     ],
   },
   {

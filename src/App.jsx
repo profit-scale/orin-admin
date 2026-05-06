@@ -28,6 +28,17 @@ const SqlRunner      = lazy(() => import('./pages/SqlRunner'))
 const ApiTester      = lazy(() => import('./pages/ApiTester'))
 const AuthLog        = lazy(() => import('./pages/AuthLog'))
 
+// Wave 2 — Insights group. Lazy.
+const Revenue     = lazy(() => import('./pages/Revenue'))
+const Payments    = lazy(() => import('./pages/Payments'))
+const Trials      = lazy(() => import('./pages/Trials'))
+const Storage     = lazy(() => import('./pages/Storage'))
+const Flags       = lazy(() => import('./pages/Flags'))
+const Campaigns   = lazy(() => import('./pages/Campaigns'))
+const Onboarding  = lazy(() => import('./pages/Onboarding'))
+const Quotas      = lazy(() => import('./pages/Quotas'))
+const EdgeLogs    = lazy(() => import('./pages/EdgeLogs'))
+
 function LazyFallback() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -135,6 +146,16 @@ export default function App() {
                   <Route path="/sql"            element={<L Component={SqlRunner} />} />
                   <Route path="/api-tester"     element={<L Component={ApiTester} />} />
                   <Route path="/auth-log"       element={<L Component={AuthLog} />} />
+                  {/* Wave 2 */}
+                  <Route path="/revenue"     element={<L Component={Revenue} />} />
+                  <Route path="/payments"    element={<L Component={Payments} />} />
+                  <Route path="/trials"      element={<L Component={Trials} />} />
+                  <Route path="/storage"     element={<L Component={Storage} />} />
+                  <Route path="/flags"       element={<L Component={Flags} />} />
+                  <Route path="/campaigns"   element={<L Component={Campaigns} />} />
+                  <Route path="/onboarding"  element={<L Component={Onboarding} />} />
+                  <Route path="/quotas"      element={<L Component={Quotas} />} />
+                  <Route path="/edge-logs"   element={<L Component={EdgeLogs} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminShell>

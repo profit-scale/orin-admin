@@ -27,6 +27,9 @@ import OrgFreezeCard from '../components/company/OrgFreezeCard'
 import OrgBudgetCard from '../components/company/OrgBudgetCard'
 import ForceActionsCard from '../components/company/ForceActionsCard'
 import HealthCard from '../components/company/HealthCard'
+import StorageCard from '../components/company/StorageCard'
+import OnboardingCard from '../components/company/OnboardingCard'
+import FlagsCard from '../components/company/FlagsCard'
 
 const FN_NOT_FOUND_CODES = new Set(['42883', 'PGRST202'])
 const APP_URL = 'https://app.orinsuite.com'
@@ -1424,6 +1427,11 @@ function OperationsTab({ orgId, org, onChanged }) {
     <div className="space-y-6">
       <OrgFreezeCard org={org} onChanged={onChanged} />
       <HealthCard orgId={orgId} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <OnboardingCard orgId={orgId} />
+        <StorageCard orgId={orgId} />
+      </div>
+      <FlagsCard orgId={orgId} />
       <OrgBudgetCard orgId={orgId} />
       <ForceActionsCard orgId={orgId} />
     </div>
