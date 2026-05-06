@@ -1194,6 +1194,15 @@ function AITab({ orgId }) {
         </div>
       )}
 
+      {error && !missingMigrations && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-red-300 mt-0.5 shrink-0" />
+          <div className="text-xs text-red-200">
+            <strong className="text-red-100">Failed to load AI quota.</strong> {error}
+          </div>
+        </div>
+      )}
+
       <Card title="AI quota — current period">
         {loading ? (
           <p className="text-xs text-slate-500 text-center py-6">Loading quota…</p>

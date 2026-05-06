@@ -9,7 +9,6 @@ import {
   Search,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
-import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'

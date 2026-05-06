@@ -47,7 +47,6 @@ export default function IssueDrawer({ fingerprint, onClose, onResolved }) {
   if (!fingerprint) return null
 
   const example = rows[0] || null
-  const isResolvedAlreadyShown = false  // resolution status comes from list, not detail
 
   const handleToggleResolve = async (resolve) => {
     setActing(true)

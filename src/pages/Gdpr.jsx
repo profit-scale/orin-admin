@@ -144,9 +144,20 @@ function PurgeCard() {
         <div className="space-y-3">
           {stage === 'done' && result && (
             <Banner tone={result.user_found ? 'success' : 'warning'}>
-              {result.user_found
-                ? `Purged user ${result.user_id}. Touched ${result.contacts_touched} contacts, removed ${result.orgs_dropped} org memberships, anonymized auth row.`
-                : `No user found. Nulled ${result.contacts_touched} contact rows matching that email.`}
+              <div className="flex items-start gap-3">
+                <span className="flex-1">
+                  {result.user_found
+                    ? `Purged user ${result.user_id}. Touched ${result.contacts_touched} contacts, removed ${result.orgs_dropped} org memberships, anonymized auth row.`
+                    : `No user found. Nulled ${result.contacts_touched} contact rows matching that email.`}
+                </span>
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="shrink-0 px-2.5 py-1 text-[11px] rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/60"
+                >
+                  Purge another
+                </button>
+              </div>
             </Banner>
           )}
           {err && <Banner tone="danger">{err}</Banner>}

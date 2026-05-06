@@ -12,7 +12,6 @@ import Modal from '../components/ui/Modal'
 import Tabs from '../components/ui/Tabs'
 import { toast } from '../components/ui/Toast'
 
-function fmt(s)  { return s ? new Date(s).toLocaleString() : '—' }
 function timeAgo(s) {
   if (!s) return 'Never'
   const d = new Date(s).getTime()
