@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Beaker, Plus, Copy, Trash2, Clock, RefreshCcw, Check } from 'lucide-react'
+import { Beaker, Plus, Copy, Trash2, Clock, Check } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import { toast } from '../components/ui/Toast'
 
 const TEMPLATES = [
   { id: 'standard', label: 'Standard (50 contacts, 10 deals, messages)' },
@@ -54,35 +57,33 @@ export default function Demo() {
     const hours = Number(prompt('Extend by how many hours?', '24'))
     if (!hours || hours <= 0) return
     const { error } = await supabase.rpc('admin_extend_demo', { p_id: id, p_hours: hours })
-    if (error) alert(error.message)
-    else refresh()
+    if (error) toast.error("Couldn't extend demo", { description: error.message })
+    else { toast.success(`Extended by ${hours}h`); refresh() }
   }
   const destroy = async (id) => {
     if (!confirm('Destroy this demo org and all its data? Cannot be undone.')) return
     const { error } = await supabase.rpc('admin_destroy_demo', { p_id: id })
-    if (error) alert(error.message)
-    else refresh()
+    if (error) toast.error("Couldn't destroy demo", { description: error.message })
+    else { toast.success('Demo org destroyed'); refresh() }
   }
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Demo orgs" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-            <Beaker className="w-5 h-5 text-indigo-300" />
+            <Beaker className="w-5 h-5 text-indigo-300" aria-hidden="true" />
             Demo orgs
           </h1>
           <p className="text-sm text-slate-500">Sandbox tenants for sales calls and screenshots. Auto-pruned after expiry.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh demo orgs" />
           <button onClick={() => setComposer(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white">
-            <Plus className="w-3.5 h-3.5" />
+            aria-label="Create new demo organization"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             Create demo org
           </button>
         </div>
@@ -104,15 +105,16 @@ export default function Demo() {
           description="Create one to spin up a fully-seeded throwaway tenant in seconds." />
       ) : (
         <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800/60 text-[10px] uppercase tracking-wider text-slate-500">
-                <th className="text-left px-5 py-2.5 font-medium">Org</th>
-                <th className="text-left px-3 py-2.5 font-medium">Template</th>
-                <th className="text-left px-3 py-2.5 font-medium">Demo email</th>
-                <th className="text-left px-3 py-2.5 font-medium">Created</th>
-                <th className="text-left px-3 py-2.5 font-medium">Expires</th>
-                <th className="text-right px-5 py-2.5 font-medium">Actions</th>
+                <th scope="col" className="text-left px-5 py-2.5 font-medium">Org</th>
+                <th scope="col" className="text-left px-3 py-2.5 font-medium">Template</th>
+                <th scope="col" className="text-left px-3 py-2.5 font-medium">Demo email</th>
+                <th scope="col" className="text-left px-3 py-2.5 font-medium">Created</th>
+                <th scope="col" className="text-left px-3 py-2.5 font-medium">Expires</th>
+                <th scope="col" className="text-right px-5 py-2.5 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -149,6 +151,7 @@ export default function Demo() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

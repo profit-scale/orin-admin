@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, Circle, RefreshCcw, Route } from 'lucide-react'
+import { CheckCircle2, Circle, Route } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
 
 const STEP_LABELS = {
   signup:                    'Sign up',
@@ -40,24 +42,22 @@ export default function Onboarding() {
 
   return (
     <div className="space-y-6 max-w-[1200px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Onboarding" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Onboarding funnel</h1>
           <p className="text-sm text-slate-500">% of new orgs hitting each milestone.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select value={days} onChange={(e)=>setDays(Number(e.target.value))}
-            className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200">
+          <label className="sr-only" htmlFor="onboarding-range">Range</label>
+          <select id="onboarding-range" value={days} onChange={(e)=>setDays(Number(e.target.value))}
+            className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={60}>Last 60 days</option>
             <option value={90}>Last 90 days</option>
           </select>
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh funnel" />
         </div>
       </div>
 

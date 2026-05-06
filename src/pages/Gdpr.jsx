@@ -11,6 +11,7 @@ import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
 
 function SectionCard({ title, subtitle, children, className = '' }) {
   return (
@@ -27,9 +28,10 @@ function SectionCard({ title, subtitle, children, className = '' }) {
 export default function Gdpr() {
   return (
     <div className="space-y-6 max-w-[1100px]">
+      <PageTitle title="GDPR" />
       <div>
         <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-          <ShieldX className="w-5 h-5 text-indigo-300" />
+          <ShieldX className="w-5 h-5 text-indigo-300" aria-hidden="true" />
           GDPR — export &amp; deletion
         </h1>
         <p className="text-sm text-slate-500">Right-to-access and right-to-erasure tooling. Every action is audited.</p>

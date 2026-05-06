@@ -13,6 +13,7 @@ import {
 import { supabase } from '../services/supabase'
 import RoleBadge from '../components/admin/RoleBadge'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
 
 const FN_NOT_FOUND_CODES = new Set(['42883', 'PGRST202'])
 const ROLES = ['owner', 'admin', 'support', 'readonly']
@@ -123,13 +124,13 @@ function StaffTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-              <th className="text-left font-medium px-4 py-3">User</th>
-              <th className="text-left font-medium px-4 py-3">Role</th>
-              <th className="text-left font-medium px-4 py-3">Granted by</th>
-              <th className="text-left font-medium px-4 py-3">
+              <th scope="col" className="text-left font-medium px-4 py-3">User</th>
+              <th scope="col" className="text-left font-medium px-4 py-3">Role</th>
+              <th scope="col" className="text-left font-medium px-4 py-3">Granted by</th>
+              <th scope="col" className="text-left font-medium px-4 py-3">
                 {showRevoked ? 'Revoked at' : 'Granted at'}
               </th>
-              <th className="text-right font-medium px-4 py-3">Actions</th>
+              <th scope="col" className="text-right font-medium px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -554,6 +555,7 @@ export default function Staff() {
 
   return (
     <div>
+      <PageTitle title="Staff" />
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Staff</h1>

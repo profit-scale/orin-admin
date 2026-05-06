@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Terminal, Play, Download, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Terminal, Play, Download, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../services/supabase'
-import Banner from '../components/ui/Banner'
+import PageTitle from '../components/ui/PageTitle'
+import ErrorCard from '../components/ui/ErrorCard'
 
 const STORAGE_KEY = 'orin-admin:last-sql-query'
 
@@ -39,7 +40,7 @@ function ResultsTable({ rows }) {
         <thead className="sticky top-0 bg-slate-950">
           <tr className="border-b border-slate-800/80">
             {headers.map((h) => (
-              <th key={h} className="text-left font-medium px-3 py-2 text-slate-400 whitespace-nowrap">{h}</th>
+              <th key={h} scope="col" className="text-left font-medium px-3 py-2 text-slate-400 whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
@@ -108,10 +109,11 @@ export default function SqlRunner() {
 
   return (
     <div className="space-y-4 max-w-[1300px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="SQL runner" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
-            <Terminal className="w-6 h-6 text-indigo-300" />
+            <Terminal className="w-6 h-6 text-indigo-300" aria-hidden="true" />
             SQL runner
           </h1>
           <p className="text-sm text-slate-500">
@@ -155,7 +157,7 @@ export default function SqlRunner() {
         </div>
       </div>
 
-      {error && <Banner tone="danger" title="Query failed">{error}</Banner>}
+      {error && <ErrorCard title="Query failed" error={error} onRetry={run} />}
 
       {result && (
         <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur">

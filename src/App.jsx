@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { isConfigured } from './services/supabase'
 import AdminGate from './components/auth/AdminGate'
@@ -14,6 +14,12 @@ import Perf from './pages/Perf'
 import AI from './pages/AI'
 import AIUsage from './pages/AIUsage'
 import AdminAuthCallback from './pages/AdminAuthCallback'
+import ErrorBoundary from './components/ErrorBoundary'
+import { Toaster } from './components/ui/Toast'
+import CommandPalette from './components/CommandPalette'
+import ShortcutsHelp from './components/ShortcutsHelp'
+import useGlobalShortcuts from './hooks/useGlobalShortcuts'
+import { CREATE_TARGETS } from './lib/shortcuts'
 
 // Lazy — observability bundle has its own dependencies (sparkline,
 // drawer, realtime subscription) that we don't need on the
@@ -47,9 +53,22 @@ const Demo        = lazy(() => import('./pages/Demo'))
 const Incidents   = lazy(() => import('./pages/Incidents'))
 const Security    = lazy(() => import('./pages/Security'))
 
+// Wave 4 — power features (mig 137-143).
+const Webhooks     = lazy(() => import('./pages/Webhooks'))
+const PowerUsers   = lazy(() => import('./pages/PowerUsers'))
+const Marketplace  = lazy(() => import('./pages/Marketplace'))
+const Security2FA  = lazy(() => import('./pages/Security2FA'))
+const UsageExports = lazy(() => import('./pages/UsageExports'))
+const Failover     = lazy(() => import('./pages/Failover'))
+const Feedback     = lazy(() => import('./pages/Feedback'))
+
 function LazyFallback() {
   return (
-    <div className="flex items-center justify-center py-24">
+    <div
+      role="status"
+      aria-label="Loading page"
+      className="flex items-center justify-center py-24"
+    >
       <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
     </div>
   )
@@ -98,6 +117,104 @@ function ConfigRequiredScreen() {
   )
 }
 
+// Inner shell that has access to the router (so it can call useNavigate
+// for shortcuts). Lives below <BrowserRouter> in App.
+function AdminApp({ user, signOut }) {
+  const navigate = useNavigate()
+  const [paletteOpen, setPaletteOpen]     = useState(false)
+  const [paletteMode, setPaletteMode]     = useState('default')
+  const [helpOpen, setHelpOpen]           = useState(false)
+
+  const openPalette = useCallback((mode = 'default') => {
+    setPaletteMode(mode)
+    setPaletteOpen(true)
+  }, [])
+
+  const handleCreate = useCallback((action) => {
+    const target = CREATE_TARGETS[action]
+    if (target) navigate(target)
+  }, [navigate])
+
+  useGlobalShortcuts({
+    navigate,
+    openPalette,
+    openHelp: () => setHelpOpen(true),
+    onCreate: handleCreate,
+  })
+
+  return (
+    <AdminShell
+      user={user}
+      onSignOut={signOut}
+      onOpenPalette={() => openPalette('default')}
+    >
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/companies" element={<Companies />} />
+          <Route path="/companies/:id" element={<CompanyDetail />} />
+          <Route path="/staff" element={<Staff />} />
+          <Route path="/billing" element={<Billing />} />
+          <Route path="/perf" element={<Perf />} />
+          <Route
+            path="/observability"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <Observability />
+              </Suspense>
+            }
+          />
+          <Route path="/ai" element={<AI />} />
+          <Route path="/ai/usage" element={<AIUsage />} />
+          <Route path="/audit"          element={<L Component={AuditLog} />} />
+          <Route path="/search"         element={<L Component={CrossSearch} />} />
+          <Route path="/announcements"  element={<L Component={Announcements} />} />
+          <Route path="/sql"            element={<L Component={SqlRunner} />} />
+          <Route path="/api-tester"     element={<L Component={ApiTester} />} />
+          <Route path="/auth-log"       element={<L Component={AuthLog} />} />
+          {/* Wave 2 */}
+          <Route path="/revenue"     element={<L Component={Revenue} />} />
+          <Route path="/payments"    element={<L Component={Payments} />} />
+          <Route path="/trials"      element={<L Component={Trials} />} />
+          <Route path="/storage"     element={<L Component={Storage} />} />
+          <Route path="/flags"       element={<L Component={Flags} />} />
+          <Route path="/campaigns"   element={<L Component={Campaigns} />} />
+          <Route path="/onboarding"  element={<L Component={Onboarding} />} />
+          <Route path="/quotas"      element={<L Component={Quotas} />} />
+          <Route path="/edge-logs"   element={<L Component={EdgeLogs} />} />
+          {/* Wave 3 */}
+          <Route path="/experiments" element={<L Component={Experiments} />} />
+          <Route path="/cohort"      element={<L Component={Cohort} />} />
+          <Route path="/gdpr"        element={<L Component={Gdpr} />} />
+          <Route path="/demo"        element={<L Component={Demo} />} />
+          <Route path="/incidents"   element={<L Component={Incidents} />} />
+          <Route path="/security"    element={<L Component={Security} />} />
+          {/* Wave 4 — power features (mig 137-143) */}
+          <Route path="/webhooks"      element={<L Component={Webhooks} />} />
+          <Route path="/power-users"   element={<L Component={PowerUsers} />} />
+          <Route path="/marketplace"   element={<L Component={Marketplace} />} />
+          <Route path="/security/2fa"  element={<L Component={Security2FA} />} />
+          <Route path="/usage-exports" element={<L Component={UsageExports} />} />
+          <Route path="/failover"      element={<L Component={Failover} />} />
+          <Route path="/feedback"      element={<L Component={Feedback} />} />
+          {/*
+            New routes from the parallel Wave 4 agent should be inserted
+            ABOVE this line. The catch-all stays last.
+          */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ErrorBoundary>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        initialMode={paletteMode}
+      />
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </AdminShell>
+  )
+}
+
 export default function App() {
   // Call hooks unconditionally to satisfy the rules-of-hooks lint, then
   // early-return on the config gate. `isConfigured` is a module-level
@@ -107,6 +224,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         {/* Public: OAuth callback. Must live OUTSIDE AdminGate so the
             unauthenticated round-trip from Google can complete. */}
@@ -124,56 +242,7 @@ export default function App() {
           path="/*"
           element={
             <AdminGate auth={auth}>
-              <AdminShell user={auth.user} onSignOut={auth.signOut}>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/companies" element={<Companies />} />
-                  <Route path="/companies/:id" element={<CompanyDetail />} />
-                  <Route path="/staff" element={<Staff />} />
-                  <Route path="/billing" element={<Billing />} />
-                  <Route path="/perf" element={<Perf />} />
-                  <Route
-                    path="/observability"
-                    element={
-                      <Suspense
-                        fallback={
-                          <div className="flex items-center justify-center py-24">
-                            <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                          </div>
-                        }
-                      >
-                        <Observability />
-                      </Suspense>
-                    }
-                  />
-                  <Route path="/ai" element={<AI />} />
-                  <Route path="/ai/usage" element={<AIUsage />} />
-                  <Route path="/audit"          element={<L Component={AuditLog} />} />
-                  <Route path="/search"         element={<L Component={CrossSearch} />} />
-                  <Route path="/announcements"  element={<L Component={Announcements} />} />
-                  <Route path="/sql"            element={<L Component={SqlRunner} />} />
-                  <Route path="/api-tester"     element={<L Component={ApiTester} />} />
-                  <Route path="/auth-log"       element={<L Component={AuthLog} />} />
-                  {/* Wave 2 */}
-                  <Route path="/revenue"     element={<L Component={Revenue} />} />
-                  <Route path="/payments"    element={<L Component={Payments} />} />
-                  <Route path="/trials"      element={<L Component={Trials} />} />
-                  <Route path="/storage"     element={<L Component={Storage} />} />
-                  <Route path="/flags"       element={<L Component={Flags} />} />
-                  <Route path="/campaigns"   element={<L Component={Campaigns} />} />
-                  <Route path="/onboarding"  element={<L Component={Onboarding} />} />
-                  <Route path="/quotas"      element={<L Component={Quotas} />} />
-                  <Route path="/edge-logs"   element={<L Component={EdgeLogs} />} />
-                  {/* Wave 3 */}
-                  <Route path="/experiments" element={<L Component={Experiments} />} />
-                  <Route path="/cohort"      element={<L Component={Cohort} />} />
-                  <Route path="/gdpr"        element={<L Component={Gdpr} />} />
-                  <Route path="/demo"        element={<L Component={Demo} />} />
-                  <Route path="/incidents"   element={<L Component={Incidents} />} />
-                  <Route path="/security"    element={<L Component={Security} />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </AdminShell>
+              <AdminApp user={auth.user} signOut={auth.signOut} />
             </AdminGate>
           }
         />

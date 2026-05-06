@@ -21,6 +21,7 @@ import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import MiniLineChart from '../components/charts/MiniLineChart'
 import AIUsageLive from '../components/admin/AIUsageLive'
+import PageTitle from '../components/ui/PageTitle'
 
 // ────────────────────────────────────────────────────────────────────
 // formatters
@@ -394,7 +395,7 @@ function OrgUsageTable({ rows, loading }) {
                   )}
                 </span>
               </th>
-              <th className="text-left font-medium px-3 py-2.5">Throttled</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Throttled</th>
               <th className="px-3 py-2.5"></th>
             </tr>
           </thead>
@@ -629,11 +630,12 @@ export default function AIUsage() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
+      <PageTitle title="AI Usage" />
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
-            <BarChart3 className="w-6 h-6 text-indigo-300" />
+            <BarChart3 className="w-6 h-6 text-indigo-300" aria-hidden="true" />
             AI Usage
           </h1>
           <p className="text-sm text-slate-500">

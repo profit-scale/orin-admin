@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   Hourglass,
   Mail,
-  RefreshCcw,
   TrendingUp,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
@@ -12,6 +11,8 @@ import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import StatCard from '../components/ui/StatCard'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
 
 function ScoreChip({ score }) {
   const tone =
@@ -53,16 +54,13 @@ export default function Trials() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Trials" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Trials</h1>
           <p className="text-sm text-slate-500">Active trial orgs + cohort conversion history.</p>
         </div>
-        <button onClick={refresh} disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-50">
-          <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={refresh} loading={loading} label="Refresh trials" />
       </div>
 
       {missing && (
@@ -103,14 +101,14 @@ export default function Trials() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Org</th>
-                  <th className="text-left font-medium px-3 py-2.5">Owner</th>
-                  <th className="text-right font-medium px-3 py-2.5">Days left</th>
-                  <th className="text-right font-medium px-3 py-2.5">Score</th>
-                  <th className="text-right font-medium px-3 py-2.5">Contacts</th>
-                  <th className="text-right font-medium px-3 py-2.5">Deals</th>
-                  <th className="text-right font-medium px-3 py-2.5">Msgs</th>
-                  <th className="text-right font-medium px-5 py-2.5">Action</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Owner</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Days left</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Score</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Contacts</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Deals</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Msgs</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Action</th>
                 </tr>
               </thead>
               <tbody>

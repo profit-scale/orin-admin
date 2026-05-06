@@ -6,7 +6,6 @@ import {
   CreditCard,
   ExternalLink,
   Mail,
-  RefreshCcw,
   RotateCw,
   Wallet,
 } from 'lucide-react'
@@ -15,6 +14,10 @@ import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import StatCard from '../components/ui/StatCard'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
+import { toast } from '../components/ui/Toast'
 
 function fmtCents(c) {
   if (c == null) return '—'
@@ -49,7 +52,6 @@ export default function Payments() {
   const [missing, setMissing]   = useState(false)
   const [err, setErr]           = useState(null)
   const [busy, setBusy]         = useState({})
-  const [actionMsg, setActionMsg] = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -72,20 +74,19 @@ export default function Payments() {
 
   async function onRetry(invoiceId) {
     setBusy((b) => ({ ...b, [invoiceId]: 'retry' }))
-    setActionMsg(null)
     try {
       const { data, error } = await supabase.functions.invoke('admin-retry-payment', {
         body: { invoice_id: invoiceId },
       })
       if (error) throw error
       if (data?.ok) {
-        setActionMsg({ tone: 'success', text: `Retry: ${data.status}` })
+        toast.success(`Retry: ${data.status}`)
         refresh()
       } else {
-        setActionMsg({ tone: 'warning', text: `Retry: ${data?.error || 'failed'}` })
+        toast.warning(`Retry: ${data?.error || 'failed'}`)
       }
     } catch (e) {
-      setActionMsg({ tone: 'danger', text: e?.message || 'Retry failed' })
+      toast.error('Retry failed', { description: e?.message || 'Retry failed' })
     } finally {
       setBusy((b) => { const c = { ...b }; delete c[invoiceId]; return c })
     }
@@ -102,16 +103,13 @@ export default function Payments() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Payments" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Payments</h1>
           <p className="text-sm text-slate-500">Failed-payment recovery + processor health.</p>
         </div>
-        <button onClick={refresh} disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-50">
-          <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={refresh} loading={loading} label="Refresh payments" />
       </div>
 
       {missing && (
@@ -119,8 +117,7 @@ export default function Payments() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">120_payment_intelligence.sql</code>.
         </Banner>
       )}
-      {err && !missing && <Banner tone="danger" title="Failed to load">{err}</Banner>}
-      {actionMsg && <Banner tone={actionMsg.tone}>{actionMsg.text}</Banner>}
+      {err && !missing && <ErrorCard title="Couldn't load payments" error={err} onRetry={refresh} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -151,14 +148,14 @@ export default function Payments() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Org</th>
-                  <th className="text-left font-medium px-3 py-2.5">Owner</th>
-                  <th className="text-left font-medium px-3 py-2.5">Invoice</th>
-                  <th className="text-left font-medium px-3 py-2.5">Status</th>
-                  <th className="text-right font-medium px-3 py-2.5">Amount</th>
-                  <th className="text-right font-medium px-3 py-2.5">Due</th>
-                  <th className="text-right font-medium px-3 py-2.5">Days</th>
-                  <th className="text-right font-medium px-5 py-2.5">Actions</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Owner</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Invoice</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Status</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Amount</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Due</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Days</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Actions</th>
                 </tr>
               </thead>
               <tbody>

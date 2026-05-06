@@ -13,6 +13,8 @@ import { supabase } from '../services/supabase'
 import { ADMIN_DEFAULT_LAYOUT, reconcileLayout } from '../components/admin-dashboard/registry'
 import { AdminDashboardLayoutEngine } from '../components/admin-dashboard/DashboardLayoutEngine'
 import Banner from '../components/ui/Banner'
+import PageTitle from '../components/ui/PageTitle'
+import { toast } from '../components/ui/Toast'
 
 function useAdminDashboardLayout() {
   const [layout, setLayout]   = useState(reconcileLayout(ADMIN_DEFAULT_LAYOUT))
@@ -90,13 +92,19 @@ export default function Dashboard() {
     setSaving(true); setErr(null)
     const r = await save(layout)
     setSaving(false)
-    if (r?.error) setErr(r.error)
-    else setEditing(false)
+    if (r?.error) {
+      setErr(r.error)
+      toast.error("Couldn't save layout", { description: r.error })
+    } else {
+      setEditing(false)
+      toast.success('Layout saved')
+    }
   }
 
   return (
     <div className="space-y-6 max-w-[1500px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Dashboard" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Dashboard</h1>
           <p className="text-sm text-slate-500">Platform overview · personal layout</p>

@@ -5,7 +5,6 @@ import {
   Pause,
   StopCircle,
   Award,
-  RefreshCcw,
   Plus,
   Sparkles,
 } from 'lucide-react'
@@ -15,6 +14,10 @@ import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
+import { toast } from '../components/ui/Toast'
 
 const STATUS_TONE = {
   draft:     'bg-slate-500/15 text-slate-300 border-slate-500/30',
@@ -96,23 +99,21 @@ export default function Experiments() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="AI experiments" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-            <Beaker className="w-5 h-5 text-indigo-300" />
+            <Beaker className="w-5 h-5 text-indigo-300" aria-hidden="true" />
             AI prompt experiments
           </h1>
           <p className="text-sm text-slate-500">A/B test candidate system prompts on a slice of traffic.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh experiments" />
           <button onClick={() => setComposer(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white">
-            <Plus className="w-3.5 h-3.5" />
+            aria-label="Create new experiment"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             New experiment
           </button>
         </div>
@@ -123,7 +124,7 @@ export default function Experiments() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">129_ai_prompt_experiments.sql</code>.
         </Banner>
       )}
-      {err && <Banner tone="danger" title="Failed to load">{err}</Banner>}
+      {err && <ErrorCard title="Failed to load experiments" error={err} onRetry={refresh} />}
 
       {loading ? (
         <div className="space-y-3">
@@ -156,8 +157,8 @@ function ExperimentCard({ exp, stats, onChange }) {
       p_id: exp.id, p_status: status,
     })
     setBusy(false)
-    if (error) alert(error.message)
-    else onChange()
+    if (error) toast.error("Couldn't change status", { description: error.message })
+    else { toast.success(`Status set to ${status}`); onChange() }
   }
 
   const promote = async () => {
@@ -165,8 +166,8 @@ function ExperimentCard({ exp, stats, onChange }) {
     setBusy(true)
     const { error } = await supabase.rpc('admin_ai_experiment_promote', { p_id: exp.id })
     setBusy(false)
-    if (error) alert(error.message)
-    else onChange()
+    if (error) toast.error("Couldn't promote", { description: error.message })
+    else { toast.success('Variant promoted to default'); onChange() }
   }
 
   // Group stats by arm — { control, variant }

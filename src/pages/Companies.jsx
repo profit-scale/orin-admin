@@ -15,6 +15,9 @@ import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import EmptyState from '../components/ui/EmptyState'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
+import ErrorCard from '../components/ui/ErrorCard'
+import RefreshButton from '../components/ui/RefreshButton'
 
 const PAGE_SIZE = 25
 
@@ -187,6 +190,7 @@ export default function Companies() {
   const [loading, setLoading] = useState(true)
   const [missingMigrations, setMissingMigrations] = useState(false)
   const [error, setError] = useState(null)
+  const [refreshTick, setRefreshTick] = useState(0)
 
   // Health snapshot map: org_id -> { score, bucket }. Best-effort: we
   // tolerate missing migration 118 (rendering no chip).
@@ -245,7 +249,7 @@ export default function Companies() {
     }
     load()
     return () => { cancelled = true }
-  }, [debouncedSearch, sort, page])
+  }, [debouncedSearch, sort, page, refreshTick])
 
   const showingFrom = totalCount === 0 ? 0 : page * PAGE_SIZE + 1
   const showingTo = page * PAGE_SIZE + orgs.length
@@ -257,6 +261,7 @@ export default function Companies() {
 
   return (
     <div>
+      <PageTitle title="Companies" />
       {/* Header */}
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
@@ -265,13 +270,20 @@ export default function Companies() {
             All organizations on the Orin platform.
           </p>
         </div>
-        {!loading && !missingMigrations && (
-          <span className="text-xs text-slate-500 whitespace-nowrap">
-            {totalCount != null
-              ? `${totalCount} ${totalCount === 1 ? 'company' : 'companies'}`
-              : `${orgs.length}+ companies`}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {!loading && !missingMigrations && (
+            <span className="text-xs text-slate-500 whitespace-nowrap">
+              {totalCount != null
+                ? `${totalCount} ${totalCount === 1 ? 'company' : 'companies'}`
+                : `${orgs.length}+ companies`}
+            </span>
+          )}
+          <RefreshButton
+            onClick={() => setRefreshTick((t) => t + 1)}
+            loading={loading}
+            label="Refresh companies"
+          />
+        </div>
       </div>
 
       {missingMigrations && (
@@ -282,17 +294,22 @@ export default function Companies() {
       )}
 
       {error && !missingMigrations && (
-        <Banner tone="danger" className="mb-6" title="Failed to load companies">
-          {error}
-        </Banner>
+        <ErrorCard
+          className="mb-6"
+          title="Failed to load companies"
+          error={error}
+          onRetry={() => setRefreshTick((t) => t + 1)}
+        />
       )}
 
       {/* Toolbar */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
+            data-primary-search
+            aria-label="Search companies"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or slug…"
@@ -318,14 +335,14 @@ export default function Companies() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="text-left font-medium px-4 py-3">Company</th>
-                <th className="text-left font-medium px-4 py-3">Plan</th>
-                <th className="text-left font-medium px-4 py-3">Status</th>
-                <th className="text-right font-medium px-4 py-3">Members</th>
-                <th className="text-right font-medium px-4 py-3">MRR</th>
-                <th className="text-left font-medium px-4 py-3">Created</th>
-                <th className="text-left font-medium px-4 py-3">Last activity</th>
-                <th className="text-right font-medium px-4 py-3 w-20">Action</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">Company</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">Plan</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">Status</th>
+                <th scope="col" className="text-right font-medium px-4 py-3">Members</th>
+                <th scope="col" className="text-right font-medium px-4 py-3">MRR</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">Created</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">Last activity</th>
+                <th scope="col" className="text-right font-medium px-4 py-3 w-20">Action</th>
               </tr>
             </thead>
             <tbody>

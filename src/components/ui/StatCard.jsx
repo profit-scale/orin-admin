@@ -30,7 +30,7 @@ export default function StatCard({
             {label}
           </span>
           {Icon && (
-            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${accent} flex items-center justify-center text-white/90 ring-1 ring-white/5`}>
+            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${accent} flex items-center justify-center text-white/90 ring-1 ring-white/5`} aria-hidden="true">
               <Icon className="w-3.5 h-3.5" />
             </div>
           )}

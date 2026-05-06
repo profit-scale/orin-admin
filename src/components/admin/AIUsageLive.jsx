@@ -75,13 +75,13 @@ export default function AIUsageLive() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-slate-900/95">
             <tr className="border-b border-slate-800/60 text-[10px] uppercase tracking-wider text-slate-500">
-              <th className="text-left font-medium px-3 py-2">When</th>
-              <th className="text-left font-medium px-3 py-2">Surface</th>
-              <th className="text-left font-medium px-3 py-2">Org</th>
-              <th className="text-left font-medium px-3 py-2">Model</th>
-              <th className="text-right font-medium px-3 py-2">Tokens</th>
-              <th className="text-right font-medium px-3 py-2">Cost</th>
-              <th className="text-left font-medium px-3 py-2">Status</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">When</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Surface</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Org</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Model</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Tokens</th>
+              <th scope="col" className="text-right font-medium px-3 py-2">Cost</th>
+              <th scope="col" className="text-left font-medium px-3 py-2">Status</th>
             </tr>
           </thead>
           <tbody>

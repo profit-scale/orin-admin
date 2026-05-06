@@ -22,6 +22,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Tabs from '../components/ui/Tabs'
 import Sparkline from '../components/observability/Sparkline'
 import IssueDrawer from '../components/observability/IssueDrawer'
+import PageTitle from '../components/ui/PageTitle'
 
 // ────────────────────────────────────────────────────────────────────
 // In-house observability dashboard. Replaces the Sentry/Axiom UI
@@ -94,7 +95,8 @@ export default function Observability() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Observability" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Observability</h1>
           <p className="text-sm text-slate-500">
@@ -412,12 +414,12 @@ function IssuesTab({ onMissing, sourceOptions }) {
           <table className="w-full text-xs">
             <thead className="bg-slate-950/60">
               <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                <th className="text-left  font-medium px-4 py-2.5 w-[14%]">Count</th>
-                <th className="text-left  font-medium px-4 py-2.5 w-[42%]">Issue</th>
-                <th className="text-left  font-medium px-4 py-2.5 w-[18%]">Source</th>
-                <th className="text-right font-medium px-4 py-2.5 w-[8%]">Users</th>
-                <th className="text-right font-medium px-4 py-2.5 w-[8%]">Orgs</th>
-                <th className="text-right font-medium px-4 py-2.5 w-[10%]">Last seen</th>
+                <th scope="col" className="text-left  font-medium px-4 py-2.5 w-[14%]">Count</th>
+                <th scope="col" className="text-left  font-medium px-4 py-2.5 w-[42%]">Issue</th>
+                <th scope="col" className="text-left  font-medium px-4 py-2.5 w-[18%]">Source</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5 w-[8%]">Users</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5 w-[8%]">Orgs</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5 w-[10%]">Last seen</th>
               </tr>
             </thead>
             <tbody>
@@ -774,12 +776,12 @@ function PerformanceTab({ onMissing }) {
           <table className="w-full text-xs">
             <thead className="bg-slate-950/60">
               <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                <th className="text-left  font-medium px-4 py-2.5">Source</th>
-                <th className="text-right font-medium px-4 py-2.5">Calls</th>
-                <th className="text-right font-medium px-4 py-2.5">p50</th>
-                <th className="text-right font-medium px-4 py-2.5">p95</th>
-                <th className="text-right font-medium px-4 py-2.5">p99</th>
-                <th className="text-right font-medium px-4 py-2.5">Error rate</th>
+                <th scope="col" className="text-left  font-medium px-4 py-2.5">Source</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5">Calls</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5">p50</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5">p95</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5">p99</th>
+                <th scope="col" className="text-right font-medium px-4 py-2.5">Error rate</th>
               </tr>
             </thead>
             <tbody>

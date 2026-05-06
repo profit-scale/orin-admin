@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Grid3x3, RefreshCcw } from 'lucide-react'
+import { Grid3x3 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
 
 const METRICS = [
   { key: 'any_activity', label: 'Any activity (contacts/deals/messages/invoices)' },
@@ -78,21 +81,18 @@ export default function Cohort() {
 
   return (
     <div className="space-y-6 max-w-[1500px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Cohort retention" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-            <Grid3x3 className="w-5 h-5 text-indigo-300" />
+            <Grid3x3 className="w-5 h-5 text-indigo-300" aria-hidden="true" />
             Cohort retention
           </h1>
           <p className="text-sm text-slate-500">
             Of orgs that signed up in month X, what fraction were still active in month X+N?
           </p>
         </div>
-        <button onClick={refresh} disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
-          <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={refresh} loading={loading} label="Refresh cohort grid" />
       </div>
 
       {missing && (
@@ -100,7 +100,7 @@ export default function Cohort() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">130_cohort_analysis.sql</code>.
         </Banner>
       )}
-      {err && <Banner tone="danger" title="Failed to load">{err}</Banner>}
+      {err && <ErrorCard title="Failed to load cohort data" error={err} onRetry={refresh} />}
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur p-3 flex flex-wrap items-center gap-3">
         <label className="text-[11px] text-slate-500 uppercase tracking-wider">Definition of active</label>

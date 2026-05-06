@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Building2,
   Layers,
-  RefreshCcw,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
@@ -13,6 +12,9 @@ import Banner from '../components/ui/Banner'
 import StatCard from '../components/ui/StatCard'
 import Skeleton from '../components/ui/Skeleton'
 import MultiLineChart from '../components/charts/MultiLineChart'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
 
 function fmtCents(c) {
   if (c == null) return '—'
@@ -190,25 +192,22 @@ export default function Revenue() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Revenue" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Revenue</h1>
           <p className="text-sm text-slate-500">Live MRR, growth, churn, and where the dollars come from.</p>
         </div>
         <div className="flex items-center gap-3">
           {refreshedAt && (
-            <span className="text-[11px] text-slate-600 hidden md:inline">
+            <span
+              className="text-[11px] text-slate-600 hidden md:inline"
+              title={refreshedAt.toISOString()}
+            >
               Updated {refreshedAt.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}
             </span>
           )}
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-50"
-          >
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh revenue stats" />
         </div>
       </div>
 
@@ -220,7 +219,7 @@ export default function Revenue() {
       )}
 
       {err && !missing && (
-        <Banner tone="danger" title="Failed to load revenue">{err}</Banner>
+        <ErrorCard title="Failed to load revenue" error={err} onRetry={refresh} />
       )}
 
       {/* KPI cards */}
@@ -299,10 +298,10 @@ export default function Revenue() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                    <th className="text-left font-medium px-5 py-2.5">Org</th>
-                    <th className="text-right font-medium px-3 py-2.5">Lifetime $</th>
-                    <th className="text-right font-medium px-3 py-2.5">Live MRR</th>
-                    <th className="text-right font-medium px-5 py-2.5">Last paid</th>
+                    <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2.5">Lifetime $</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2.5">Live MRR</th>
+                    <th scope="col" className="text-right font-medium px-5 py-2.5">Last paid</th>
                   </tr>
                 </thead>
                 <tbody>

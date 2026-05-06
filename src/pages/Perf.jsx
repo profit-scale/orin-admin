@@ -4,13 +4,14 @@ import {
   Database,
   Gauge,
   HardDrive,
-  RefreshCcw,
   TrendingUp,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
 
 // ────────────────────────────────────────────────────────────────────
 // formatters
@@ -112,11 +113,11 @@ function QueryTable({ rows, loading, emptyText, sortByLabel }) {
       <table className="w-full text-xs">
         <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10">
           <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-            <th className="text-left font-medium px-3 py-2 w-[55%]">Query</th>
-            <th className="text-right font-medium px-3 py-2">Calls</th>
-            <th className="text-right font-medium px-3 py-2">Mean</th>
-            <th className="text-right font-medium px-3 py-2">Total</th>
-            <th className="text-right font-medium px-3 py-2">% total</th>
+            <th scope="col" className="text-left font-medium px-3 py-2 w-[55%]">Query</th>
+            <th scope="col" className="text-right font-medium px-3 py-2">Calls</th>
+            <th scope="col" className="text-right font-medium px-3 py-2">Mean</th>
+            <th scope="col" className="text-right font-medium px-3 py-2">Total</th>
+            <th scope="col" className="text-right font-medium px-3 py-2">% total</th>
           </tr>
         </thead>
         <tbody>
@@ -340,10 +341,12 @@ export default function Perf() {
     Number(health.idle_in_tx) >= 1 ? 'warn'   :
     'good'
 
+  const anyLoading = slowLoading || frequentLoading || healthLoading || tablesLoading
   return (
     <div className="space-y-6 max-w-[1400px]">
+      <PageTitle title="Performance" />
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Performance</h1>
           <p className="text-sm text-slate-500">
@@ -352,7 +355,10 @@ export default function Perf() {
         </div>
         <div className="flex items-center gap-3">
           {refreshedAt && (
-            <span className="text-[11px] text-slate-600 hidden md:inline">
+            <span
+              className="text-[11px] text-slate-600 hidden md:inline"
+              title={refreshedAt.toISOString()}
+            >
               Refreshed{' '}
               <span className="text-slate-400">
                 {refreshedAt.toLocaleTimeString('en-US', {
@@ -363,20 +369,7 @@ export default function Perf() {
               </span>
             </span>
           )}
-          <button
-            onClick={refresh}
-            disabled={slowLoading || frequentLoading || healthLoading || tablesLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCcw
-              className={`w-3.5 h-3.5 ${
-                slowLoading || frequentLoading || healthLoading || tablesLoading
-                  ? 'animate-spin'
-                  : ''
-              }`}
-            />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={anyLoading} label="Refresh perf stats" />
         </div>
       </div>
 
@@ -513,10 +506,10 @@ export default function Perf() {
               <table className="w-full text-xs">
                 <thead className="bg-slate-950/90">
                   <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                    <th className="text-left font-medium px-3 py-2">Table</th>
-                    <th className="text-right font-medium px-3 py-2">Rows</th>
-                    <th className="text-right font-medium px-3 py-2">Seq %</th>
-                    <th className="text-left font-medium px-3 py-2">Recommendation</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Table</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2">Rows</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2">Seq %</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Recommendation</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -554,10 +547,10 @@ export default function Perf() {
               <table className="w-full text-xs">
                 <thead className="bg-slate-950/90">
                   <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                    <th className="text-left font-medium px-3 py-2">Job</th>
-                    <th className="text-left font-medium px-3 py-2">Schedule</th>
-                    <th className="text-left font-medium px-3 py-2">Last run</th>
-                    <th className="text-left font-medium px-3 py-2">Status</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Job</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Schedule</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Last run</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -609,11 +602,11 @@ export default function Perf() {
             <table className="w-full text-xs">
               <thead className="bg-slate-950/90">
                 <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-3 py-2">Table</th>
-                  <th className="text-right font-medium px-3 py-2">Heap</th>
-                  <th className="text-right font-medium px-3 py-2">Total</th>
-                  <th className="text-right font-medium px-3 py-2">Bloat</th>
-                  <th className="text-right font-medium px-3 py-2">Bloat %</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2">Table</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Heap</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Total</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Bloat</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2">Bloat %</th>
                 </tr>
               </thead>
               <tbody>

@@ -19,6 +19,9 @@ import {
 import { supabase } from '../services/supabase'
 import Tabs from '../components/ui/Tabs'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import { toast } from '../components/ui/Toast'
 import RoleBadge from '../components/admin/RoleBadge'
 import StatusBadge from '../components/admin/StatusBadge'
 import ImpersonateButton from '../components/admin/ImpersonateButton'
@@ -231,13 +234,18 @@ export default function CompanyDetail() {
 
   return (
     <div>
-      <Link
-        to="/companies"
-        className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition mb-4"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Back to companies
-      </Link>
+      <PageTitle title={org?.name || org?.slug || 'Company'} />
+      <div className="mb-4 flex items-center justify-between">
+        <Link
+          to="/companies"
+          aria-label="Back to companies list"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+          Back to companies
+        </Link>
+        <RefreshButton onClick={load} loading={loading} label="Refresh company detail" />
+      </div>
 
       <CompanyHeader org={org} sub={sub} members={members} />
 
@@ -443,12 +451,12 @@ function MembersTab({ members, orgId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-4 py-3">Member</th>
-                  <th className="text-left font-medium px-4 py-3">Email</th>
-                  <th className="text-left font-medium px-4 py-3">Role</th>
-                  <th className="text-left font-medium px-4 py-3">Status</th>
-                  <th className="text-left font-medium px-4 py-3">Last seen</th>
-                  <th className="text-right font-medium px-4 py-3">Actions</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3">Member</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3">Email</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3">Role</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3">Status</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3">Last seen</th>
+                  <th scope="col" className="text-right font-medium px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -770,12 +778,12 @@ function BillingTab({ orgId, sub, invoices: rpcInvoices, onRefresh }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Number</th>
-                  <th className="text-left font-medium px-3 py-2.5">Status</th>
-                  <th className="text-right font-medium px-3 py-2.5">Amount</th>
-                  <th className="text-left font-medium px-3 py-2.5">Due</th>
-                  <th className="text-left font-medium px-3 py-2.5">Paid</th>
-                  <th className="text-right font-medium px-5 py-2.5">PDF</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Number</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Status</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Amount</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Due</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Paid</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -1343,12 +1351,12 @@ function AITab({ orgId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">When</th>
-                  <th className="text-left font-medium px-3 py-2.5">Surface</th>
-                  <th className="text-left font-medium px-3 py-2.5">Model</th>
-                  <th className="text-right font-medium px-3 py-2.5">Tokens</th>
-                  <th className="text-right font-medium px-3 py-2.5">Cost</th>
-                  <th className="text-left font-medium px-5 py-2.5">Status</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">When</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Surface</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Model</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Tokens</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Cost</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -1562,11 +1570,12 @@ function DangerConfirmModal({ kind, open, onClose, org, orgId, onDone }) {
 
       onDone?.()
       onClose?.()
-      window.alert(
-        `${kind === 'suspend' ? 'Suspension' : 'Hard delete'} request logged.\n\n` +
-        `The destructive operation itself is not yet implemented in v0.1 — ` +
-        `the request has been recorded in admin_audit_log only. ` +
-        `A platform engineer must complete the action manually.`
+      toast.warning(
+        `${kind === 'suspend' ? 'Suspension' : 'Hard delete'} request logged`,
+        {
+          description:
+            'The destructive operation itself is not yet implemented in v0.1 — the request has been recorded in admin_audit_log only. A platform engineer must complete the action manually.',
+        },
       )
     } catch (e) {
       setError(e?.message || 'Failed to log action')

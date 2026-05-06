@@ -4,13 +4,15 @@ import {
   HardDrive,
   Files,
   Trash2,
-  RefreshCcw,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import StatCard from '../components/ui/StatCard'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import { toast } from '../components/ui/Toast'
 
 function formatBytes(bytes) {
   if (bytes == null) return '—'
@@ -28,7 +30,6 @@ export default function Storage() {
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
   const [busy, setBusy]       = useState(false)
-  const [actionMsg, setActionMsg] = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -61,15 +62,14 @@ export default function Storage() {
     if (selectedIds.length === 0) return
     if (!window.confirm(`Permanently delete ${selectedIds.length} orphaned file${selectedIds.length===1?'':'s'}? This is logged in audit.`)) return
     setBusy(true)
-    setActionMsg(null)
     try {
       const { data, error } = await supabase.rpc('admin_storage_bulk_delete_orphans', { p_object_ids: selectedIds })
       if (error) throw error
-      setActionMsg({ tone:'success', text:`Deleted ${data?.deleted || 0} files.` })
+      toast.success(`Deleted ${data?.deleted || 0} file${(data?.deleted || 0) === 1 ? '' : 's'}`)
       setSelected({})
       refresh()
     } catch (e) {
-      setActionMsg({ tone:'danger', text: e.message })
+      toast.error('Bulk delete failed', { description: e.message })
     } finally {
       setBusy(false)
     }
@@ -77,16 +77,13 @@ export default function Storage() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Storage" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Storage</h1>
           <p className="text-sm text-slate-500">Per-org footprint and orphan cleanup queue.</p>
         </div>
-        <button onClick={refresh} disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition disabled:opacity-50">
-          <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={refresh} loading={loading} label="Refresh storage stats" />
       </div>
 
       {missing && (
@@ -94,7 +91,6 @@ export default function Storage() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">122_storage_intel.sql</code>.
         </Banner>
       )}
-      {actionMsg && <Banner tone={actionMsg.tone}>{actionMsg.text}</Banner>}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Total stored" value={totals ? formatBytes(totals.total_bytes) : '—'} icon={HardDrive} loading={loading} />
@@ -142,10 +138,10 @@ export default function Storage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Org</th>
-                  <th className="text-right font-medium px-3 py-2.5">Total</th>
-                  <th className="text-right font-medium px-3 py-2.5">Files</th>
-                  <th className="text-left font-medium px-5 py-2.5">By bucket</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Total</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Files</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">By bucket</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,12 +202,12 @@ export default function Storage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5 w-10"></th>
-                  <th className="text-left font-medium px-3 py-2.5">Bucket</th>
-                  <th className="text-left font-medium px-3 py-2.5">Path</th>
-                  <th className="text-right font-medium px-3 py-2.5">Size</th>
-                  <th className="text-left font-medium px-3 py-2.5">Reason</th>
-                  <th className="text-right font-medium px-5 py-2.5">Uploaded</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5 w-10"></th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Bucket</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Path</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Size</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Reason</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Uploaded</th>
                 </tr>
               </thead>
               <tbody>

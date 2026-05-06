@@ -18,6 +18,7 @@ import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
 
 // ────────────────────────────────────────────────────────────────────
 // constants
@@ -358,10 +359,11 @@ export default function AIPage() {
 
   return (
     <div className="space-y-6 max-w-[1100px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="AI Settings" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-indigo-300" />
+            <Sparkles className="w-6 h-6 text-indigo-300" aria-hidden="true" />
             AI Settings
           </h1>
           <p className="text-sm text-slate-500">

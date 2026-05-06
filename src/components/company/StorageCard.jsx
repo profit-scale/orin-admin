@@ -83,9 +83,9 @@ export default function StorageCard({ orgId }) {
                   <table className="w-full text-xs">
                     <thead className="bg-slate-950/80">
                       <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                        <th className="text-left font-medium px-3 py-1.5">Bucket</th>
-                        <th className="text-left font-medium px-3 py-1.5">Path</th>
-                        <th className="text-right font-medium px-3 py-1.5">Size</th>
+                        <th scope="col" className="text-left font-medium px-3 py-1.5">Bucket</th>
+                        <th scope="col" className="text-left font-medium px-3 py-1.5">Path</th>
+                        <th scope="col" className="text-right font-medium px-3 py-1.5">Size</th>
                       </tr>
                     </thead>
                     <tbody>

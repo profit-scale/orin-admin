@@ -773,12 +773,12 @@ function IntegrationsTable({ rows, orgId, ownerUserId, ownerEmail }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
-              <th className="text-left font-medium px-5 py-2.5">Provider</th>
-              <th className="text-left font-medium px-3 py-2.5">Mode</th>
-              <th className="text-left font-medium px-3 py-2.5">Status</th>
-              <th className="text-left font-medium px-3 py-2.5">Last event</th>
-              <th className="text-left font-medium px-3 py-2.5">Error</th>
-              <th className="text-right font-medium px-5 py-2.5">Action</th>
+              <th scope="col" className="text-left font-medium px-5 py-2.5">Provider</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Mode</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Status</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Last event</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Error</th>
+              <th scope="col" className="text-right font-medium px-5 py-2.5">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -1076,10 +1076,10 @@ function RecentActivityTable({ rows }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
-              <th className="text-left font-medium px-5 py-2.5">When</th>
-              <th className="text-left font-medium px-3 py-2.5">Actor</th>
-              <th className="text-left font-medium px-3 py-2.5">Action</th>
-              <th className="text-left font-medium px-3 py-2.5">Entity</th>
+              <th scope="col" className="text-left font-medium px-5 py-2.5">When</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Actor</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Action</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Entity</th>
             </tr>
           </thead>
           <tbody>

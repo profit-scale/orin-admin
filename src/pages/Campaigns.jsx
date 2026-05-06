@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Mail,
   Plus,
-  RefreshCcw,
   Send,
   Eye,
   Users,
@@ -12,6 +11,10 @@ import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import Modal from '../components/ui/Modal'
+import EmptyState from '../components/ui/EmptyState'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import { toast } from '../components/ui/Toast'
 
 function StatusPill({ status }) {
   const map = {
@@ -31,7 +34,6 @@ export default function Campaigns() {
   const [loading, setLoading]     = useState(true)
   const [missing, setMissing]     = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
-  const [actionMsg, setActionMsg] = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -50,20 +52,18 @@ export default function Campaigns() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Campaigns" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Campaigns</h1>
           <p className="text-sm text-slate-500">Email blasts to customers — through the existing Resend pipeline.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800/60 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh campaigns" />
           <button onClick={() => setComposeOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white">
-            <Plus className="w-3.5 h-3.5" /> New campaign
+            aria-label="Compose new campaign"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New campaign
           </button>
         </div>
       </div>
@@ -73,7 +73,6 @@ export default function Campaigns() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">126_email_campaigns.sql</code>.
         </Banner>
       )}
-      {actionMsg && <Banner tone={actionMsg.tone}>{actionMsg.text}</Banner>}
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur">
         {loading ? (
@@ -81,22 +80,31 @@ export default function Campaigns() {
             {Array.from({length:5}).map((_,i)=>(<Skeleton key={i} width="100%" height={32} rounded="rounded" />))}
           </div>
         ) : campaigns.length === 0 ? (
-          <div className="p-12 text-center">
-            <Mail className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No campaigns yet.</p>
-          </div>
+          <EmptyState
+            icon={Mail}
+            title="No campaigns yet"
+            description="Reach customers with a one-off broadcast or a scheduled blast."
+            action={
+              <button
+                onClick={() => setComposeOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+              >
+                <Plus className="w-3 h-3" aria-hidden="true" /> New campaign
+              </button>
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Subject</th>
-                  <th className="text-left font-medium px-3 py-2.5">Status</th>
-                  <th className="text-right font-medium px-3 py-2.5">Recipients</th>
-                  <th className="text-right font-medium px-3 py-2.5">Sent</th>
-                  <th className="text-right font-medium px-3 py-2.5">Failed</th>
-                  <th className="text-right font-medium px-3 py-2.5">Created by</th>
-                  <th className="text-right font-medium px-5 py-2.5">When</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Subject</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Status</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Recipients</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Sent</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Failed</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Created by</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">When</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,8 +130,8 @@ export default function Campaigns() {
       </div>
 
       <ComposeModal open={composeOpen} onClose={() => setComposeOpen(false)}
-        onCreated={() => { refresh(); setActionMsg({ tone:'success', text:'Campaign created.' }) }}
-        onSent={(r) => { refresh(); setActionMsg({ tone:'success', text:`Sent ${r.sent} of ${r.recipient_count} (failed ${r.failed}).` }) }}
+        onCreated={() => { refresh(); toast.success('Campaign created') }}
+        onSent={(r) => { refresh(); toast.success(`Sent ${r.sent} of ${r.recipient_count}`, { description: r.failed ? `${r.failed} failed` : null }) }}
       />
     </div>
   )

@@ -6,12 +6,16 @@ import {
   AlertTriangle,
   Info,
   Zap,
-  RefreshCw,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import Modal from '../components/ui/Modal'
 import Banner from '../components/ui/Banner'
 import EmptyState from '../components/ui/EmptyState'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
+import Skeleton from '../components/ui/Skeleton'
+import { toast } from '../components/ui/Toast'
 
 const LEVELS = [
   { id: 'info',     label: 'Info',     tone: 'bg-sky-500/15 border-sky-500/30 text-sky-200',         Icon: Info },
@@ -62,18 +66,20 @@ export default function Announcements() {
     if (!window.confirm('Archive this announcement? It will stop showing in customer apps.')) return
     try {
       await supabase.rpc('admin_archive_announcement', { p_id: id })
+      toast.success('Archived')
       load()
     } catch (e) {
-      alert(e?.message || 'Failed to archive')
+      toast.error("Couldn't archive", { description: e?.message || 'Failed to archive' })
     }
   }, [load])
 
   return (
     <div className="space-y-6 max-w-[1200px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Announcements" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
-            <Megaphone className="w-6 h-6 text-indigo-300" />
+            <Megaphone className="w-6 h-6 text-indigo-300" aria-hidden="true" />
             Announcements
           </h1>
           <p className="text-sm text-slate-500">
@@ -81,19 +87,13 @@ export default function Announcements() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800/60 transition disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={load} loading={loading} label="Refresh announcements" />
           <button
             onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition"
+            aria-label="Create new announcement"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             New announcement
           </button>
         </div>
@@ -106,11 +106,13 @@ export default function Announcements() {
         </Banner>
       )}
 
-      {error && <Banner tone="danger" title="Couldn't load">{error}</Banner>}
+      {error && <ErrorCard title="Couldn't load announcements" error={error} onRetry={load} />}
 
       {loading ? (
-        <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 px-4 py-12 text-center text-slate-500 text-sm">
-          Loading…
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} width="100%" height={96} rounded="rounded-2xl" />
+          ))}
         </div>
       ) : !rows.length ? (
         <EmptyState

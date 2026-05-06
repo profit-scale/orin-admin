@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   Ban,
   CheckCircle2,
-  RefreshCcw,
   Play,
   Search,
 } from 'lucide-react'
@@ -14,6 +13,9 @@ import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import { toast } from '../components/ui/Toast'
 
 const SEVERITY_TONE = {
   low:      'bg-slate-500/15 text-slate-300 border-slate-500/30',
@@ -93,8 +95,8 @@ export default function Security() {
   const ack = async (id) => {
     const note = prompt('Acknowledge note (optional)')
     const { error } = await supabase.rpc('admin_ack_threat', { p_id: id, p_note: note || null })
-    if (error) alert(error.message)
-    else refresh()
+    if (error) toast.error("Couldn't acknowledge", { description: error.message })
+    else { toast.success('Threat acknowledged'); refresh() }
   }
 
   const runDetectors = async () => {
@@ -103,9 +105,10 @@ export default function Security() {
       const { data, error } = await supabase.functions.invoke('admin-detect-threats', { body: {} })
       if (error) throw error
       setRunResult(data?.results || null)
+      toast.success('Detectors ran')
       await refresh()
     } catch (e) {
-      alert(e?.message || String(e))
+      toast.error('Detector run failed', { description: e?.message || String(e) })
     } finally {
       setRunning(false)
     }
@@ -113,25 +116,23 @@ export default function Security() {
 
   return (
     <div className="space-y-6 max-w-[1500px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Security" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-rose-300" />
+            <ShieldAlert className="w-5 h-5 text-rose-300" aria-hidden="true" />
             Security
           </h1>
           <p className="text-sm text-slate-500">Anomaly detectors run every 15 minutes via pg_cron.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={runDetectors} disabled={running}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-indigo-500/40 text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50">
-            <Play className={`w-3.5 h-3.5 ${running ? 'animate-spin' : ''}`} />
+            aria-label="Run anomaly detectors now"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-indigo-500/40 text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Play className={`w-3.5 h-3.5 ${running ? 'animate-spin' : ''}`} aria-hidden="true" />
             Run detectors now
           </button>
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh threats" />
         </div>
       </div>
 
@@ -208,12 +209,12 @@ export default function Security() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[10px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left px-5 py-2.5 font-medium">When</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Category</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Severity</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Payload</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Org / user</th>
-                  <th className="text-right px-5 py-2.5 font-medium">Action</th>
+                  <th scope="col" className="text-left px-5 py-2.5 font-medium">When</th>
+                  <th scope="col" className="text-left px-3 py-2.5 font-medium">Category</th>
+                  <th scope="col" className="text-left px-3 py-2.5 font-medium">Severity</th>
+                  <th scope="col" className="text-left px-3 py-2.5 font-medium">Payload</th>
+                  <th scope="col" className="text-left px-3 py-2.5 font-medium">Org / user</th>
+                  <th scope="col" className="text-right px-5 py-2.5 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>

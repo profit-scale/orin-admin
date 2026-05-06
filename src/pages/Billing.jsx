@@ -13,6 +13,7 @@ import Banner from '../components/ui/Banner'
 import Tabs from '../components/ui/Tabs'
 import EmptyState from '../components/ui/EmptyState'
 import PaymentGallery from '../components/integrations/PaymentGallery'
+import PageTitle from '../components/ui/PageTitle'
 
 /**
  * Billing & Payments — admin portal v1.
@@ -274,6 +275,7 @@ export default function Billing() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
+      <PageTitle title="Billing" />
       {/* Header */}
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList,
   Filter,
-  RefreshCw,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
@@ -11,6 +10,9 @@ import {
 import { supabase } from '../services/supabase'
 import Banner from '../components/ui/Banner'
 import EmptyState from '../components/ui/EmptyState'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import ErrorCard from '../components/ui/ErrorCard'
 
 // Available event filters. Kept tight — anything not listed shows under
 // "all". The dropdown deliberately stays short.
@@ -165,24 +167,18 @@ export default function AuditLog() {
 
   return (
     <div className="space-y-6 max-w-[1300px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Audit log" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
-            <ClipboardList className="w-6 h-6 text-indigo-300" />
+            <ClipboardList className="w-6 h-6 text-indigo-300" aria-hidden="true" />
             Audit log
           </h1>
           <p className="text-sm text-slate-500">
             Every admin write action is recorded here. Append-only.
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800/60 transition disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={load} loading={loading} label="Refresh audit log" />
       </div>
 
       {missing && (
@@ -217,8 +213,11 @@ export default function AuditLog() {
             {SINCE_OPTIONS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
           </select>
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
             <input
+              type="search"
+              data-primary-search
+              aria-label="Filter audit by admin email"
               value={adminEmailFilter}
               onChange={(e) => setAdminEmailFilter(e.target.value)}
               placeholder="filter by admin email"
@@ -231,7 +230,7 @@ export default function AuditLog() {
         </div>
       </div>
 
-      {error && <Banner tone="danger" title="Couldn't load audit log">{error}</Banner>}
+      {error && <ErrorCard title="Couldn't load audit log" error={error} onRetry={load} />}
 
       {!loading && items.length === 0 && !error ? (
         <EmptyState
@@ -241,13 +240,14 @@ export default function AuditLog() {
         />
       ) : (
         <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="text-left font-medium px-4 py-3">When</th>
-                <th className="text-left font-medium px-3 py-3">Action</th>
-                <th className="text-left font-medium px-3 py-3">Target</th>
-                <th className="text-left font-medium px-3 py-3">Admin</th>
+                <th scope="col" className="text-left font-medium px-4 py-3">When</th>
+                <th scope="col" className="text-left font-medium px-3 py-3">Action</th>
+                <th scope="col" className="text-left font-medium px-3 py-3">Target</th>
+                <th scope="col" className="text-left font-medium px-3 py-3">Admin</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -312,6 +312,7 @@ export default function AuditLog() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

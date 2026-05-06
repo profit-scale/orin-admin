@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Megaphone, Plus, Send, RefreshCcw, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react'
+import { Megaphone, Plus, Send, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
 
 const IMPACT_OPTS = ['none', 'minor', 'major', 'critical']
 const STATUS_OPTS = ['investigating', 'identified', 'monitoring', 'resolved']
@@ -60,23 +62,21 @@ export default function Incidents() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Incidents" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-indigo-300" />
+            <Megaphone className="w-5 h-5 text-indigo-300" aria-hidden="true" />
             Incidents
           </h1>
           <p className="text-sm text-slate-500">Public-facing incidents shown on /status. Every action is audited.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh incidents" />
           <button onClick={() => setComposer(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white">
-            <Plus className="w-3.5 h-3.5" />
+            aria-label="Create new incident"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             New incident
           </button>
         </div>

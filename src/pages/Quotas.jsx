@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, RefreshCcw, AlertTriangle } from 'lucide-react'
+import { ShieldCheck, AlertTriangle } from 'lucide-react'
 import { supabase } from '../services/supabase'
 import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
 
 function pctTone(pct) {
   if (pct == null) return 'text-slate-400'
@@ -50,16 +52,13 @@ export default function Quotas() {
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Plan quotas" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Plan quotas</h1>
           <p className="text-sm text-slate-500">Per-plan limits + orgs near (≥80%) any cap.</p>
         </div>
-        <button onClick={refresh} disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white disabled:opacity-50">
-          <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <RefreshButton onClick={refresh} loading={loading} label="Refresh quotas" />
       </div>
 
       {missing && (
@@ -82,13 +81,13 @@ export default function Quotas() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Plan</th>
-                  <th className="text-right font-medium px-3 py-2.5">Contacts</th>
-                  <th className="text-right font-medium px-3 py-2.5">Storage</th>
-                  <th className="text-right font-medium px-3 py-2.5">AI calls/mo</th>
-                  <th className="text-right font-medium px-3 py-2.5">AI cost/mo</th>
-                  <th className="text-right font-medium px-3 py-2.5">Team</th>
-                  <th className="text-right font-medium px-5 py-2.5">Widgets</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Plan</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Contacts</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Storage</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">AI calls/mo</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">AI cost/mo</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Team</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Widgets</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,13 +125,13 @@ export default function Quotas() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                    <th className="text-left font-medium px-5 py-2.5">Org</th>
-                    <th className="text-left font-medium px-3 py-2.5">Plan</th>
-                    <th className="text-left font-medium px-3 py-2.5">Metric</th>
-                    <th className="text-right font-medium px-3 py-2.5">Used</th>
-                    <th className="text-right font-medium px-3 py-2.5">Cap</th>
-                    <th className="text-right font-medium px-3 py-2.5">%</th>
-                    <th className="text-right font-medium px-5 py-2.5">Owner</th>
+                    <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2.5">Plan</th>
+                    <th scope="col" className="text-left font-medium px-3 py-2.5">Metric</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2.5">Used</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2.5">Cap</th>
+                    <th scope="col" className="text-right font-medium px-3 py-2.5">%</th>
+                    <th scope="col" className="text-right font-medium px-5 py-2.5">Owner</th>
                   </tr>
                 </thead>
                 <tbody>

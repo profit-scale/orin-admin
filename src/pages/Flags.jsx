@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   ToggleLeft,
   Plus,
-  RefreshCcw,
   X,
 } from 'lucide-react'
 import { supabase } from '../services/supabase'
@@ -11,6 +10,10 @@ import { isMissingFunction } from '../lib/rpcErrors'
 import Banner from '../components/ui/Banner'
 import Skeleton from '../components/ui/Skeleton'
 import Modal from '../components/ui/Modal'
+import PageTitle from '../components/ui/PageTitle'
+import RefreshButton from '../components/ui/RefreshButton'
+import EmptyState from '../components/ui/EmptyState'
+import { toast } from '../components/ui/Toast'
 
 export default function Flags() {
   const [flags, setFlags]     = useState([])
@@ -18,7 +21,6 @@ export default function Flags() {
   const [missing, setMissing] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [overridesFor, setOverridesFor] = useState(null)
-  const [actionMsg, setActionMsg] = useState(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -36,7 +38,6 @@ export default function Flags() {
   useEffect(() => { refresh() }, [refresh])
 
   async function setFlag(key, patch) {
-    setActionMsg(null)
     const flag = flags.find((f) => f.key === key)
     if (!flag) return
     const { error } = await supabase.rpc('admin_set_flag', {
@@ -46,29 +47,27 @@ export default function Flags() {
       p_rollout_pct: patch.rollout_pct ?? flag.rollout_pct,
     })
     if (error) {
-      setActionMsg({ tone: 'danger', text: error.message })
+      toast.error(`Couldn't update ${key}`, { description: error.message })
     } else {
-      setActionMsg({ tone: 'success', text: `Updated ${key}` })
+      toast.success(`Updated ${key}`)
       refresh()
     }
   }
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      <div className="flex items-end justify-between">
+      <PageTitle title="Feature flags" />
+      <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1">Feature flags</h1>
           <p className="text-sm text-slate-500">Global flags + per-org overrides + sticky percent-rollouts.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={refresh} disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800/60 disabled:opacity-50">
-            <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <RefreshButton onClick={refresh} loading={loading} label="Refresh flags" />
           <button onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white">
-            <Plus className="w-3.5 h-3.5" /> New flag
+            aria-label="Create new feature flag"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New flag
           </button>
         </div>
       </div>
@@ -78,7 +77,6 @@ export default function Flags() {
           Apply <code className="px-1 py-0.5 bg-black/30 rounded">125_feature_flags.sql</code>.
         </Banner>
       )}
-      {actionMsg && <Banner tone={actionMsg.tone}>{actionMsg.text}</Banner>}
 
       <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur">
         {loading ? (
@@ -86,21 +84,30 @@ export default function Flags() {
             {Array.from({length:5}).map((_,i)=>(<Skeleton key={i} width="100%" height={32} rounded="rounded" />))}
           </div>
         ) : flags.length === 0 ? (
-          <div className="p-12 text-center">
-            <ToggleLeft className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No flags yet — create one to start gating features.</p>
-          </div>
+          <EmptyState
+            icon={ToggleLeft}
+            title="No flags yet"
+            description="Create one to start gating features behind a per-org rollout."
+            action={
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+              >
+                <Plus className="w-3 h-3" aria-hidden="true" /> New flag
+              </button>
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="text-left font-medium px-5 py-2.5">Key</th>
-                  <th className="text-left font-medium px-3 py-2.5">Description</th>
-                  <th className="text-center font-medium px-3 py-2.5">Default</th>
-                  <th className="text-left font-medium px-3 py-2.5 w-[280px]">Rollout %</th>
-                  <th className="text-center font-medium px-3 py-2.5">Overrides</th>
-                  <th className="text-right font-medium px-5 py-2.5">Actions</th>
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Key</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Description</th>
+                  <th scope="col" className="text-center font-medium px-3 py-2.5">Default</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5 w-[280px]">Rollout %</th>
+                  <th scope="col" className="text-center font-medium px-3 py-2.5">Overrides</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -244,10 +251,10 @@ function OverridesModal({ flagKey, onClose }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="text-left font-medium px-3 py-2">Org</th>
-                <th className="text-center font-medium px-3 py-2">State</th>
-                <th className="text-left font-medium px-3 py-2">Set by</th>
-                <th className="text-right font-medium px-3 py-2">When</th>
+                <th scope="col" className="text-left font-medium px-3 py-2">Org</th>
+                <th scope="col" className="text-center font-medium px-3 py-2">State</th>
+                <th scope="col" className="text-left font-medium px-3 py-2">Set by</th>
+                <th scope="col" className="text-right font-medium px-3 py-2">When</th>
               </tr>
             </thead>
             <tbody>
