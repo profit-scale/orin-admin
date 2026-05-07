@@ -11,8 +11,8 @@ import { toast } from '../components/ui/Toast'
 // want from the browser. Keeping this list in code keeps the experience
 // snappy and predictable; new functions just need a one-line add.
 const FUNCTIONS = [
-  { id: 'admin-ai-status',                bodyHint: '{}', desc: 'Check current AI key + Anthropic ping.' },
-  { id: 'admin-ai-set-key',               bodyHint: '{"key":"sk-ant-…","mode":"test"}', desc: 'Validate (mode=test) or persist (mode=save) Anthropic key.' },
+  { id: 'admin-ai-status',                bodyHint: '{}', desc: 'Check current AI key + Orin AI ping.' },
+  { id: 'admin-ai-set-key',               bodyHint: '{"key":"sk-ant-…","mode":"test"}', desc: 'Validate (mode=test) or persist (mode=save) Orin AI key.' },
   { id: 'admin-impersonate',              bodyHint: '{"target_user_id":"<uuid>","target_org_id":"<uuid>"}', desc: 'Mint a magic link for a target user.' },
   { id: 'admin-sql-run',                  bodyHint: '{"query":"SELECT now()"}', desc: 'Run a single SQL statement (super-admin only).' },
   { id: 'admin-force-refresh-tokens',     bodyHint: '{"organization_id":"<uuid>"}', desc: 'Mark org integrations for OAuth refresh.' },

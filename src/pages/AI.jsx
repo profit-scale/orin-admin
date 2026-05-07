@@ -28,16 +28,19 @@ import PageTitle from '../components/ui/PageTitle'
 // Provider is hard-locked to 'anthropic' but kept as a select for the
 // rare future where a second provider ships.
 const PROVIDERS = [
-  { id: 'anthropic', label: 'Anthropic' },
+  { id: 'anthropic', label: 'Orin AI' },
 ]
 
 // Haiku is listed first and recommended — it's the cheapest Claude.
 // Super-admins can still override per surface (Sonnet/Opus options remain).
+// Model IDs (claude-haiku-4-5 etc.) are the literal API model identifiers
+// sent to the Anthropic endpoint — they MUST stay correct. The labels
+// shown to admins are the rebrand-friendly names.
 const MODELS_BY_PROVIDER = {
   anthropic: [
-    { id: 'claude-haiku-4-5',           label: 'claude-haiku-4-5 (recommended · cheapest)' },
-    { id: 'claude-sonnet-4-5-20251022', label: 'claude-sonnet-4-5' },
-    { id: 'claude-opus-4-5',            label: 'claude-opus-4-5' },
+    { id: 'claude-haiku-4-5',           label: 'Orin AI · Fast (recommended · cheapest)' },
+    { id: 'claude-sonnet-4-5-20251022', label: 'Orin AI · Standard' },
+    { id: 'claude-opus-4-5',            label: 'Orin AI · Heavy' },
   ],
 }
 
@@ -399,12 +402,13 @@ export default function AIPage() {
       />
 
       {/* Recommendation note */}
-      <Banner tone="info" title="Haiku is recommended for the best price/performance">
+      <Banner tone="info" title="Fast tier is recommended for the best price/performance">
         <p>
-          <code className="px-1 py-0.5 bg-black/30 rounded">claude-haiku-4-5</code>{' '}
-          costs roughly <strong>$0.80 per 1M input tokens</strong> and{' '}
-          <strong>$4 per 1M output tokens</strong>. That's 4×–10× cheaper than Sonnet
-          on the same task. Use Haiku unless a specific surface really needs more horsepower.
+          <strong>Orin AI · Fast</strong> costs roughly{' '}
+          <strong>$0.80 per 1M input tokens</strong> and{' '}
+          <strong>$4 per 1M output tokens</strong>. That's 4×–10× cheaper than the
+          Standard tier on the same task. Use Fast unless a specific surface really
+          needs more horsepower.
         </p>
       </Banner>
 
@@ -695,8 +699,8 @@ function APIKeyCard({ config, onPersisted }) {
           message:
             innerChecks.api_error ||
             (innerChecks.secret_format_ok === false
-              ? "Doesn't match Anthropic's key pattern (sk-ant-…)"
-              : 'Anthropic rejected the key.'),
+              ? "Doesn't match the expected key pattern (sk-ant-…)"
+              : 'Orin AI rejected the key.'),
         })
       }
     } catch (e) {
@@ -753,14 +757,14 @@ function APIKeyCard({ config, onPersisted }) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Plug className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Anthropic API key</h3>
+            <h3 className="text-sm font-semibold text-slate-200">API key</h3>
             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-${tierMeta.color}-500/15 text-${tierMeta.color}-300`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${tierMeta.dot}`} />
               {tierMeta.label}
             </span>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
-            Paste an Anthropic API key below. Hit <strong>Test</strong> to ping the
+            Paste the Orin AI API key below. Hit <strong>Test</strong> to ping the
             real API without saving, or <strong>Save</strong> to validate AND persist
             in one step. The key is masked after save and never echoed back.
           </p>
