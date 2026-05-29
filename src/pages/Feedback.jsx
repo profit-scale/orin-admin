@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MessageCircle, RefreshCcw, Bug, Lightbulb, HelpCircle, Heart, Circle, Mail,
   CheckCircle2, Clock,
@@ -45,8 +45,8 @@ export default function Feedback() {
   const [filterCategory, setFilterCategory] = useState('')
   const [drawer, setDrawer] = useState(null)
 
-  const refresh = async () => {
-    setLoading(true)
+  const refresh = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     const { data, error } = await supabase.rpc('admin_feedback_list', {
       p_status:   filterStatus || null,
       p_category: filterCategory || null,
@@ -58,9 +58,41 @@ export default function Feedback() {
     } else {
       setList(data || [])
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
   useEffect(() => { refresh() }, [filterStatus, filterCategory])
+
+  // Keep a ref to the freshest refresh (with current filters) so the realtime
+  // handler always re-fetches with the active filter without re-subscribing.
+  const refreshRef = useRef(refresh)
+  refreshRef.current = refresh
+  const rtTimer = useRef(null)
+
+  // Live: silently re-fetch whenever a customer submits new feedback or an
+  // admin updates a row, so the queue updates in real time without a manual
+  // refresh. Debounced so a burst of writes collapses into one fetch.
+  useEffect(() => {
+    const channel = supabase
+      .channel('rt:customer_feedback:admin')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customer_feedback' },
+        () => {
+          if (rtTimer.current) clearTimeout(rtTimer.current)
+          rtTimer.current = setTimeout(() => refreshRef.current?.({ silent: true }), 250)
+        },
+      )
+      .subscribe()
+    // Poll fallback: even if the realtime publication doesn't yet include
+    // customer_feedback, the queue still stays current (silent, no skeleton
+    // flash). Realtime makes it instant; this guarantees liveness regardless.
+    const poll = setInterval(() => refreshRef.current?.({ silent: true }), 20000)
+    return () => {
+      if (rtTimer.current) clearTimeout(rtTimer.current)
+      clearInterval(poll)
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const counts = useMemo(() => {
     const m = { open: 0, acknowledged: 0, planned: 0, shipped: 0, wont_do: 0 }
@@ -113,7 +145,15 @@ export default function Feedback() {
           </button>
         ))}
         <div className="grow" />
-        <button onClick={refresh} disabled={loading}
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] text-emerald-300/90"
+          title="New submissions appear here automatically">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+          </span>
+          Live
+        </span>
+        <button onClick={() => refresh()} disabled={loading}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800/40 disabled:opacity-50">
           <RefreshCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Refresh
