@@ -97,7 +97,7 @@ export default function AdminLoginPage({ auth }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
-                placeholder="you@nctmediagroup.com"
+                placeholder="you@orinsuite.com"
               />
             </div>
 

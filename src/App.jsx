@@ -65,6 +65,15 @@ const Feedback     = lazy(() => import('./pages/Feedback'))
 // Wave 5 — customer API (mig 144-146).
 const ApiKeys = lazy(() => import('./pages/ApiKeys'))
 
+// Wave 6 — public-facing surface (mig 151).
+const CareersAdmin = lazy(() => import('./pages/CareersAdmin'))
+
+// Wave 7 — email-system v2 (mig 158).
+const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
+
+// Org provisioning — create a client org + invite the owner.
+const CreateOrganization = lazy(() => import('./pages/CreateOrganization'))
+
 function LazyFallback() {
   return (
     <div
@@ -155,6 +164,7 @@ function AdminApp({ user, signOut }) {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/companies" element={<Companies />} />
+          <Route path="/companies/new" element={<L Component={CreateOrganization} />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/billing" element={<Billing />} />
@@ -202,6 +212,10 @@ function AdminApp({ user, signOut }) {
           <Route path="/feedback"      element={<L Component={Feedback} />} />
           {/* Wave 5 — customer API oversight (mig 144-146) */}
           <Route path="/api-keys"      element={<L Component={ApiKeys} />} />
+          {/* Wave 6 — public-facing surface (mig 151) */}
+          <Route path="/careers"       element={<L Component={CareersAdmin} />} />
+          {/* Wave 7 — email-system v2 (mig 158) */}
+          <Route path="/email-templates" element={<L Component={EmailTemplates} />} />
           {/*
             New routes from the parallel Wave 4 agent should be inserted
             ABOVE this line. The catch-all stays last.

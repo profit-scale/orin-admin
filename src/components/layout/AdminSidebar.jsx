@@ -35,6 +35,8 @@ import {
   Flame,
   FileSpreadsheet,
   KeyRound,
+  Briefcase,
+  BadgePlus,
 } from 'lucide-react'
 
 const navSections = [
@@ -42,6 +44,7 @@ const navSections = [
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
       { to: '/companies', label: 'Companies', icon: Building2 },
+      { to: '/companies/new', label: 'Create org', icon: BadgePlus },
       { to: '/staff', label: 'Staff', icon: Users },
       { to: '/billing', label: 'Billing', icon: CreditCard },
       { to: '/perf', label: 'Perf', icon: Gauge },
@@ -77,6 +80,7 @@ const navSections = [
       { to: '/marketplace', label: 'Marketplace',     icon: Store },
       { to: '/failover',    label: 'Failover',        icon: Globe },
       { to: '/feedback',    label: 'Feedback',        icon: MessageCircle },
+      { to: '/careers',     label: 'Careers',         icon: Briefcase },
     ],
   },
   {
@@ -91,10 +95,11 @@ const navSections = [
   {
     label: 'Tools',
     items: [
-      { to: '/search',         label: 'Search',         icon: SearchIcon },
-      { to: '/announcements',  label: 'Announcements',  icon: Megaphone },
-      { to: '/sql',            label: 'SQL runner',     icon: Terminal },
-      { to: '/api-tester',     label: 'API tester',     icon: Send },
+      { to: '/search',          label: 'Search',          icon: SearchIcon },
+      { to: '/announcements',   label: 'Announcements',   icon: Megaphone },
+      { to: '/sql',             label: 'SQL runner',      icon: Terminal },
+      { to: '/api-tester',      label: 'API tester',      icon: Send },
+      { to: '/email-templates', label: 'Email templates', icon: Mail },
     ],
   },
   {
