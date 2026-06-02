@@ -88,6 +88,7 @@ const navSections = [
     items: [
       { to: '/audit',        label: 'Audit log',   icon: ClipboardList },
       { to: '/auth-log',     label: 'Auth events', icon: ShieldAlert },
+      { to: '/emails',       label: 'Email log',   icon: Send },
       { to: '/security',     label: 'Threats',     icon: ShieldAlert },
       { to: '/security/2fa', label: '2FA',         icon: ShieldCheck },
     ],

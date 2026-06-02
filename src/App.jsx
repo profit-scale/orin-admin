@@ -33,6 +33,7 @@ const Announcements  = lazy(() => import('./pages/Announcements'))
 const SqlRunner      = lazy(() => import('./pages/SqlRunner'))
 const ApiTester      = lazy(() => import('./pages/ApiTester'))
 const AuthLog        = lazy(() => import('./pages/AuthLog'))
+const Emails         = lazy(() => import('./pages/Emails'))
 
 // Wave 2 — Insights group. Lazy.
 const Revenue     = lazy(() => import('./pages/Revenue'))
@@ -185,6 +186,7 @@ function AdminApp({ user, signOut }) {
           <Route path="/sql"            element={<L Component={SqlRunner} />} />
           <Route path="/api-tester"     element={<L Component={ApiTester} />} />
           <Route path="/auth-log"       element={<L Component={AuthLog} />} />
+          <Route path="/emails"         element={<L Component={Emails} />} />
           {/* Wave 2 */}
           <Route path="/revenue"     element={<L Component={Revenue} />} />
           <Route path="/payments"    element={<L Component={Payments} />} />
