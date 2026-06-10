@@ -123,13 +123,16 @@ export default function AdminSidebar({ mobile = false, onClose }) {
     >
       {/* Logo + (on mobile) close */}
       <div className="px-6 pt-6 pb-8 flex items-start justify-between">
-        <div className="flex flex-col">
-          <span className="text-xl font-semibold tracking-tight bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
-            ORIN
-          </span>
-          <span className="mt-0.5 text-[10px] tracking-[0.3em] text-indigo-400/80 font-medium">
-            ADMIN
-          </span>
+        <div className="flex items-center gap-2.5">
+          <img src="/brand/orin-mark.png" alt="" width="32" height="32" draggable={false} className="h-8 w-auto select-none" />
+          <div className="flex flex-col">
+            <span className="text-xl font-semibold tracking-tight bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
+              ORIN
+            </span>
+            <span className="mt-0.5 text-[10px] tracking-[0.3em] text-indigo-400/80 font-medium">
+              ADMIN
+            </span>
+          </div>
         </div>
         {mobile && (
           <button

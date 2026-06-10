@@ -51,6 +51,7 @@ export default function AdminLoginPage({ auth }) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="inline-flex flex-col items-center">
+            <img src="/brand/orin-mark.png" alt="" width="56" height="56" draggable={false} className="h-14 w-auto select-none mb-3" />
             <span className="text-3xl font-semibold tracking-tight bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
               ORIN
             </span>
