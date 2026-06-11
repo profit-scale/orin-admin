@@ -477,6 +477,178 @@ function OrgUsageTable({ rows, loading }) {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// spend vs caps — per-org cost against the monthly cap (the hard limit)
+// ────────────────────────────────────────────────────────────────────
+
+function capState(row) {
+  const pct = row.pct_of_cost_cap == null ? null : Number(row.pct_of_cost_cap)
+  const alertAt = row.alert_at_pct == null ? 80 : Number(row.alert_at_pct)
+  if (row.is_throttled || (pct != null && pct >= 100)) return 'over'
+  if (pct != null && pct >= alertAt) return 'alert'
+  return 'ok'
+}
+
+function SpendVsCapsTable({ rows, loading }) {
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    let list = rows || []
+    if (q) list = list.filter((r) => String(r.organization || '').toLowerCase().includes(q))
+    return list // RPC already sorts: throttled first, then closest to cap
+  }, [rows, search])
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} width="100%" height={36} rounded="rounded-lg" />
+        ))}
+      </div>
+    )
+  }
+  if (!rows || rows.length === 0) {
+    return (
+      <EmptyState
+        icon={Gauge}
+        title="No organizations yet"
+        description="Per-org spend against the monthly cost cap will appear here."
+      />
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search orgs"
+            className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <span className="text-[11px] text-slate-500">{filtered.length} of {rows.length} orgs</span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-800/60">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-950/40">
+              <th scope="col" className="text-left font-medium px-3 py-2.5">Org</th>
+              <th scope="col" className="text-right font-medium px-3 py-2.5">AI spend / cap</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5 w-48">% of cap</th>
+              <th scope="col" className="text-right font-medium px-3 py-2.5">Daily req limit</th>
+              <th scope="col" className="text-left font-medium px-3 py-2.5">State</th>
+              <th scope="col" className="px-3 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r) => {
+              const pct = r.pct_of_cost_cap == null ? null : Number(r.pct_of_cost_cap)
+              const state = capState(r)
+              const barColor = state === 'over' ? 'bg-red-400' : state === 'alert' ? 'bg-amber-400' : 'bg-emerald-400'
+              const rowTint = state === 'over' ? 'bg-red-500/[0.04]' : state === 'alert' ? 'bg-amber-500/[0.04]' : ''
+              return (
+                <tr key={r.organization_id} className={`border-b border-slate-800/40 last:border-0 hover:bg-slate-800/30 transition ${rowTint}`}>
+                  <td className="px-3 py-2.5">
+                    <div className="text-slate-100 font-medium truncate max-w-[220px]">
+                      {r.organization || r.organization_id}
+                    </div>
+                    <div className="text-[11px] text-slate-500 tabular-nums">{formatNumber(r.ai_calls_used)} calls used</div>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    <span className="text-slate-100">{formatCents(r.ai_cost_cents_used)}</span>
+                    <span className="text-slate-500">{' / '}{r.ai_cost_cap_cents ? formatCents(r.ai_cost_cap_cents) : '∞'}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden flex-1 min-w-[80px]">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct == null ? 0 : Math.min(100, pct)}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-300 tabular-nums w-12 text-right">{pct == null ? '—' : `${pct.toFixed(0)}%`}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-slate-400">{formatNumber(r.daily_request_limit)}</td>
+                  <td className="px-3 py-2.5">
+                    {state === 'over' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-red-500/15 border border-red-500/30 text-red-200">
+                        {r.is_throttled ? `Stopped · ${r.throttled_reason || 'cap'}` : 'Over cap'}
+                      </span>
+                    ) : state === 'alert' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-200">
+                        Near cap
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-300/80">
+                        OK
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <Link to={`/companies/${r.organization_id}`} className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200 transition">
+                      View
+                      <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function RecentBudgetAlerts({ rows, loading }) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} width="100%" height={28} />
+        ))}
+      </div>
+    )
+  }
+  if (!rows || rows.length === 0) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="No budget alerts"
+        description="When an org crosses its budget alert threshold, it shows up here."
+      />
+    )
+  }
+  return (
+    <ul className="divide-y divide-slate-800/40">
+      {rows.map((e) => {
+        const pct = e.payload?.pct
+        return (
+          <li key={e.id} className="flex items-center gap-3 py-2.5">
+            <span className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-slate-200 truncate">
+                <span className="font-medium">{e.organization || 'Unknown org'}</span>
+                {pct != null && <span className="text-amber-300"> · {Number(pct).toFixed(0)}% of budget</span>}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {e.created_at ? new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+              </div>
+            </div>
+            {e.organization_id && (
+              <Link to={`/companies/${e.organization_id}`} className="text-xs text-indigo-300 hover:text-indigo-200 shrink-0">View</Link>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
 // page
 // ────────────────────────────────────────────────────────────────────
 
@@ -501,6 +673,12 @@ export default function AIUsage() {
   const [perMinute, setPerMinute] = useState([])
   const [perMinuteLoading, setPerMinuteLoading] = useState(true)
 
+  const [caps, setCaps] = useState([])
+  const [capsLoading, setCapsLoading] = useState(true)
+
+  const [alerts, setAlerts] = useState([])
+  const [alertsLoading, setAlertsLoading] = useState(true)
+
   const [missingMigrations, setMissingMigrations] = useState(false)
   const [error, setError] = useState(null)
   const [refreshedAt, setRefreshedAt] = useState(null)
@@ -513,14 +691,18 @@ export default function AIUsage() {
     setTrendLoading(true)
     setByModelLoading(true)
     setPerMinuteLoading(true)
+    setCapsLoading(true)
+    setAlertsLoading(true)
 
-    const [sumRes, orgRes, surfRes, trendRes, modelRes, perMinRes] = await Promise.all([
+    const [sumRes, orgRes, surfRes, trendRes, modelRes, perMinRes, capsRes, alertsRes] = await Promise.all([
       supabase.rpc('admin_ai_usage_summary',     { p_period: period }),
       supabase.rpc('admin_ai_usage_by_org',      { p_period: period, p_limit: 50 }),
       supabase.rpc('admin_ai_usage_by_surface',  { p_days: 30 }),
       supabase.rpc('admin_ai_usage_daily_trend', { p_days: 90 }),
       supabase.rpc('admin_ai_usage_by_model',    { p_days: 30 }),
       supabase.rpc('admin_ai_calls_per_minute',  { p_minutes: 60 }),
+      supabase.rpc('admin_org_usage_overview',   { p_limit: 500 }),
+      supabase.rpc('admin_recent_observe_events', { p_kind: 'ai_budget_alert', p_limit: 8 }),
     ])
 
     let anyMissing = false
@@ -581,6 +763,23 @@ export default function AIUsage() {
     }
     setPerMinuteLoading(false)
 
+    // spend vs caps
+    if (capsRes.error) {
+      if (isMissingFunction(capsRes.error)) anyMissing = true
+      setCaps([])
+    } else {
+      setCaps(Array.isArray(capsRes.data) ? capsRes.data : [])
+    }
+    setCapsLoading(false)
+
+    // recent budget alerts (best-effort — never gate the page on it)
+    if (alertsRes.error) {
+      setAlerts([])
+    } else {
+      setAlerts(Array.isArray(alertsRes.data) ? alertsRes.data : [])
+    }
+    setAlertsLoading(false)
+
     setMissingMigrations(anyMissing)
     setRefreshedAt(new Date())
   }, [period])
@@ -626,7 +825,10 @@ export default function AIUsage() {
     })
   }, [perMinute])
 
-  const isLoading = summaryLoading || orgsLoading || bySurfaceLoading || trendLoading
+  const capsOver = useMemo(() => (caps || []).filter((r) => capState(r) === 'over').length, [caps])
+  const capsAlert = useMemo(() => (caps || []).filter((r) => capState(r) === 'alert').length, [caps])
+
+  const isLoading = summaryLoading || orgsLoading || bySurfaceLoading || trendLoading || capsLoading
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -741,10 +943,43 @@ export default function AIUsage() {
           icon={Gauge}
           label="At-risk orgs"
           value={formatNumber(summary?.at_risk_org_count)}
-          hint="≥80% of monthly call quota"
+          hint="≥80% of monthly cost cap"
           accent="from-amber-500/40 to-amber-700/40"
           loading={summaryLoading}
         />
+      </div>
+
+      {/* Spend vs caps — the hard-limit monitor (cost cap is the binding limit) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <SectionCard
+          title="Spend vs monthly cap"
+          subtitle="Per-org AI cost against the hard cost cap · closest to the limit first"
+          className="lg:col-span-3"
+          action={
+            <span className="inline-flex items-center gap-1.5 text-[11px]">
+              {capsOver > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-200">{capsOver} stopped</span>
+              )}
+              {capsAlert > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-200">{capsAlert} near cap</span>
+              )}
+              {capsOver === 0 && capsAlert === 0 && !capsLoading && (
+                <span className="text-slate-500">all within budget</span>
+              )}
+            </span>
+          }
+        >
+          <SpendVsCapsTable rows={caps} loading={capsLoading} />
+        </SectionCard>
+
+        <SectionCard
+          title="Recent budget alerts"
+          subtitle="Orgs that crossed their alert threshold"
+          className="lg:col-span-2"
+          action={<AlertTriangle className="w-4 h-4 text-amber-400" />}
+        >
+          <RecentBudgetAlerts rows={alerts} loading={alertsLoading} />
+        </SectionCard>
       </div>
 
       {/* Per-org table */}
