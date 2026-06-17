@@ -75,6 +75,9 @@ const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
 // Org provisioning — create a client org + invite the owner.
 const CreateOrganization = lazy(() => import('./pages/CreateOrganization'))
 
+// Migrations + integrations adoption across all orgs.
+const MigrationsIntegrations = lazy(() => import('./pages/MigrationsIntegrations'))
+
 function LazyFallback() {
   return (
     <div
@@ -218,6 +221,8 @@ function AdminApp({ user, signOut }) {
           <Route path="/careers"       element={<L Component={CareersAdmin} />} />
           {/* Wave 7 — email-system v2 (mig 158) */}
           <Route path="/email-templates" element={<L Component={EmailTemplates} />} />
+          {/* Migrations + integrations adoption dashboard */}
+          <Route path="/migrations" element={<L Component={MigrationsIntegrations} />} />
           {/*
             New routes from the parallel Wave 4 agent should be inserted
             ABOVE this line. The catch-all stays last.

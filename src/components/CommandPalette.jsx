@@ -152,6 +152,7 @@ export default function CommandPalette({ open, onClose, initialMode = 'default' 
         { kind: 'route', id: '/demo',          label: 'Demo orgs',     path: '/demo' },
         { kind: 'route', id: '/ai',            label: 'AI Settings',   path: '/ai' },
         { kind: 'route', id: '/ai/usage',      label: 'AI Usage',      path: '/ai/usage' },
+        { kind: 'route', id: '/migrations',    label: 'Migrations & Integrations', path: '/migrations' },
         // Wave 4 routes
         { kind: 'route', id: '/webhooks',      label: 'Webhooks',      path: '/webhooks' },
         { kind: 'route', id: '/power-users',   label: 'Power users',   path: '/power-users' },

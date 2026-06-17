@@ -37,6 +37,7 @@ import {
   KeyRound,
   Briefcase,
   BadgePlus,
+  Layers,
 } from 'lucide-react'
 
 const navSections = [
@@ -61,6 +62,7 @@ const navSections = [
       { to: '/flags',         label: 'Feature flags',   icon: ToggleLeft },
       { to: '/campaigns',     label: 'Campaigns',       icon: Mail },
       { to: '/onboarding',    label: 'Onboarding',      icon: Route },
+      { to: '/migrations',    label: 'Migrations',      icon: Layers },
       { to: '/quotas',        label: 'Plan quotas',     icon: ShieldCheck },
       { to: '/edge-logs',     label: 'Edge logs',       icon: Activity },
       { to: '/experiments',   label: 'AI experiments',  icon: Beaker },
