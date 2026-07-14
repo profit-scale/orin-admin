@@ -84,7 +84,7 @@ const navSections = [
       { to: '/failover',    label: 'Failover',        icon: Globe },
       { to: '/feedback',    label: 'Feedback',        icon: MessageCircle },
       { to: '/careers',     label: 'Careers',         icon: Briefcase },
-      { to: '/blog',        label: 'Blog',            icon: Newspaper },
+      { to: '/blog',        label: 'Articles',        icon: Newspaper },
     ],
   },
   {

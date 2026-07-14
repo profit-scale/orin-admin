@@ -33,12 +33,12 @@ export default function BlogAdmin() {
   const [tab, setTab] = useState('posts') // 'posts' | 'topics'
   return (
     <div className="space-y-6 max-w-[1200px]">
-      <PageTitle title="Blog" />
+      <PageTitle title="Articles" />
       <div className="flex flex-wrap gap-3 items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-1 flex items-center gap-3">
             <Newspaper className="w-6 h-6 text-indigo-300" aria-hidden="true" />
-            Blog
+            Articles
           </h1>
           <p className="text-sm text-slate-500">
             Posts on orinsuite.com/blog. New posts are auto-written 5×/day from the topic queue; review, edit, or pull any down here. Every action is audited.
