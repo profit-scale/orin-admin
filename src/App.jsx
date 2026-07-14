@@ -68,6 +68,7 @@ const ApiKeys = lazy(() => import('./pages/ApiKeys'))
 
 // Wave 6 — public-facing surface (mig 151).
 const CareersAdmin = lazy(() => import('./pages/CareersAdmin'))
+const BlogAdmin = lazy(() => import('./pages/BlogAdmin'))
 
 // Wave 7 — email-system v2 (mig 158).
 const EmailTemplates = lazy(() => import('./pages/EmailTemplates'))
@@ -219,6 +220,7 @@ function AdminApp({ user, signOut }) {
           <Route path="/api-keys"      element={<L Component={ApiKeys} />} />
           {/* Wave 6 — public-facing surface (mig 151) */}
           <Route path="/careers"       element={<L Component={CareersAdmin} />} />
+          <Route path="/blog"          element={<L Component={BlogAdmin} />} />
           {/* Wave 7 — email-system v2 (mig 158) */}
           <Route path="/email-templates" element={<L Component={EmailTemplates} />} />
           {/* Migrations + integrations adoption dashboard */}
