@@ -18,9 +18,9 @@ import ErrorCard from '../components/ui/ErrorCard'
 
 function fmtCents(c) {
   if (c == null) return '—'
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-MY', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'MYR',
     maximumFractionDigits: 0,
   }).format(c / 100)
 }

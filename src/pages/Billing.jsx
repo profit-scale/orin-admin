@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ChevronDown,
@@ -117,61 +117,112 @@ function OrgDropdown({ orgs, selectedId, onSelect, loading }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Tab 2 placeholder — Stripe subscription revenue from Orin's customers.
+// Tab 2 — Orin's own subscription revenue (Stripe), live from migration 340.
 // ────────────────────────────────────────────────────────────────────────
 
-function CustomerRevenuePlaceholder() {
+function fmtMYR(cents) {
+  if (cents == null) return '—'
+  return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', maximumFractionDigits: 0 }).format(cents / 100)
+}
+
+function InvoiceStatus({ status }) {
+  const tone =
+    status === 'paid' ? 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' :
+    status === 'open' ? 'bg-amber-500/15 text-amber-200 border-amber-500/30' :
+    (status === 'void' || status === 'uncollectible') ? 'bg-rose-500/15 text-rose-200 border-rose-500/30' :
+    'bg-slate-500/15 text-slate-300 border-slate-500/30'
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] capitalize ${tone}`}>{status || '—'}</span>
+}
+
+function CustomerRevenue() {
+  const [now, setNow] = useState(null)
+  const [invoices, setInvoices] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setErr(null)
+    const [n, inv] = await Promise.all([
+      supabase.rpc('admin_mrr_now'),
+      supabase.rpc('admin_recent_invoices', { p_limit: 100 }),
+    ])
+    if (n.error) setErr(n.error.message); else setNow(n.data || null)
+    if (!inv.error) setInvoices(Array.isArray(inv.data) ? inv.data : [])
+    setLoading(false)
+  }, [])
+  useEffect(() => { refresh() }, [refresh])
+
+  const stats = [
+    { label: 'MRR (live)',        icon: DollarSign, value: now ? fmtMYR(now.mrr_current_cents) : '—' },
+    { label: 'Active paid subs',  icon: Users,      value: now ? Number(now.active_paid || 0).toLocaleString() : '—' },
+    { label: 'On free trial',     icon: TrendingUp, value: now ? Number(now.trialing || 0).toLocaleString() : '—' },
+    { label: 'New $ this month',  icon: Receipt,    value: now ? fmtMYR(now.new_cents) : '—' },
+  ]
+
   return (
     <div className="space-y-4">
-      <Banner tone="info" title="Coming next">
-        This view will show Stripe subscription revenue from Orin's paying customers.
-        Depends on the subscription billing work that hasn't shipped yet.
-      </Banner>
+      {err && <Banner tone="danger" title="Failed to load revenue">{err}</Banner>}
 
-      {/* Stat row preview — ghosted */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'MRR',            icon: DollarSign },
-          { label: 'Churn (30d)',    icon: TrendingUp },
-          { label: 'Active subs',    icon: Users },
-          { label: 'Open invoices',  icon: Receipt },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4 opacity-60">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] uppercase tracking-wider text-slate-500">{s.label}</span>
-              <s.icon className="w-3.5 h-3.5 text-slate-600" />
+              <s.icon className="w-3.5 h-3.5 text-slate-500" />
             </div>
-            <div className="text-2xl font-semibold text-slate-700">—</div>
-            <div className="text-[10px] text-slate-600 mt-1">awaiting Stripe sync</div>
+            <div className="text-2xl font-semibold text-slate-100 tabular-nums">{loading ? '…' : s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* TODO list */}
-      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5">
-        <h3 className="text-sm font-semibold text-slate-200 mb-3">Coming next</h3>
-        <ul className="space-y-2 text-xs text-slate-400">
-          <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-1.5 shrink-0" />
-            <span>Total MRR + 12-month trend (combined Orin subscriptions)</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-1.5 shrink-0" />
-            <span>Churn rate (30/60/90-day rolling)</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-1.5 shrink-0" />
-            <span>Recent invoices feed (paid · failed · refunded)</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-1.5 shrink-0" />
-            <span>Plan distribution across active subscriptions</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-1.5 shrink-0" />
-            <span>Pull Stripe events into the same `webhook_events` ledger from migration 078</span>
-          </li>
-        </ul>
+      <div className="rounded-2xl border border-slate-800/60 bg-slate-900/40 backdrop-blur">
+        <div className="px-5 py-3 border-b border-slate-800/60 flex items-center gap-2">
+          <Receipt className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-medium text-slate-100">All payments</h3>
+          <span className="text-[11px] text-slate-500">({invoices.length})</span>
+        </div>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="p-8 text-center text-sm text-slate-500">Loading…</div>
+          ) : invoices.length === 0 ? (
+            <div className="p-12 text-center text-sm text-slate-500">
+              No payments yet. Invoices appear here as customers convert from trial to paid.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500">
+                  <th scope="col" className="text-left font-medium px-5 py-2.5">Org</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Invoice</th>
+                  <th scope="col" className="text-left font-medium px-3 py-2.5">Status</th>
+                  <th scope="col" className="text-right font-medium px-3 py-2.5">Amount</th>
+                  <th scope="col" className="text-right font-medium px-5 py-2.5">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="border-b border-slate-800/40 last:border-0 hover:bg-slate-800/20">
+                    <td className="px-5 py-2.5 text-slate-200 truncate max-w-[220px]">{inv.org_name || '—'}</td>
+                    <td className="px-3 py-2.5">
+                      {inv.hosted_invoice_url ? (
+                        <a href={inv.hosted_invoice_url} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-indigo-200 font-mono text-[12px]">
+                          {inv.number || 'view'}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 font-mono text-[12px]">{inv.number || '—'}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5"><InvoiceStatus status={inv.status} /></td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-200">{fmtMYR(inv.amount_paid_cents || inv.amount_due_cents)}</td>
+                    <td className="px-5 py-2.5 text-right text-[11px] text-slate-500">
+                      {(inv.paid_at || inv.created_at) ? new Date(inv.paid_at || inv.created_at).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -366,7 +417,7 @@ export default function Billing() {
       )}
 
       {activeTab === 'subscriptions' && (
-        <CustomerRevenuePlaceholder />
+        <CustomerRevenue />
       )}
     </div>
   )
