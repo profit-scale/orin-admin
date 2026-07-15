@@ -829,9 +829,13 @@ function BillingTab({ orgId, sub, invoices: rpcInvoices, onRefresh }) {
   )
 }
 
+// Canonical plan catalog (migration 338). Legacy slugs (trial/starter/growth/
+// scale) are no longer offered — everyone was grandfathered to free/pro.
+const PLAN_LABELS = { free: 'Free Forever', pro: 'Pro', enterprise: 'Enterprise' }
+
 function OverridePlanModal({ open, onClose, sub, orgId, onSaved }) {
-  const [plan, setPlan] = useState(sub?.plan || 'trial')
-  const [status, setStatus] = useState(sub?.status || 'trialing')
+  const [plan, setPlan] = useState(sub?.plan || 'free')
+  const [status, setStatus] = useState(sub?.status || 'active')
   const [seats, setSeats] = useState(sub?.seats ?? 1)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -839,8 +843,8 @@ function OverridePlanModal({ open, onClose, sub, orgId, onSaved }) {
 
   useEffect(() => {
     if (open) {
-      setPlan(sub?.plan || 'trial')
-      setStatus(sub?.status || 'trialing')
+      setPlan(sub?.plan || 'free')
+      setStatus(sub?.status || 'active')
       setSeats(sub?.seats ?? 1)
       setReason('')
       setError(null)
@@ -853,6 +857,7 @@ function OverridePlanModal({ open, onClose, sub, orgId, onSaved }) {
     try {
       const payload = {
         plan,
+        plan_label: PLAN_LABELS[plan] || plan,
         status,
         seats: Number(seats) || 1,
         organization_id: orgId,
@@ -892,7 +897,10 @@ function OverridePlanModal({ open, onClose, sub, orgId, onSaved }) {
     }
   }
 
-  const PLANS    = ['trial', 'starter', 'growth', 'scale', 'enterprise']
+  // Offer the canonical catalog; if this org still sits on a legacy slug,
+  // keep it selectable so the dropdown reflects reality until it's changed.
+  const BASE_PLANS = ['free', 'pro', 'enterprise']
+  const PLANS    = sub?.plan && !BASE_PLANS.includes(sub.plan) ? [sub.plan, ...BASE_PLANS] : BASE_PLANS
   const STATUSES = ['trialing', 'active', 'past_due', 'canceled', 'incomplete', 'paused']
 
   return (

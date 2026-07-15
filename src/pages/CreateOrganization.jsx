@@ -5,13 +5,13 @@ import { supabase } from '../services/supabase'
 import { toast } from '../components/ui/Toast'
 
 const PLANS = [
-  { value: 'starter', label: 'Starter' },
-  { value: 'growth', label: 'Growth' },
-  { value: 'scale', label: 'Scale' },
+  { value: 'free', label: 'Free Forever' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'enterprise', label: 'Enterprise' },
 ]
 const STATUSES = [
+  { value: 'active', label: 'Active' },
   { value: 'trial', label: 'Trial (14-day)' },
-  { value: 'active', label: 'Active (paid)' },
 ]
 const CURRENCIES = [
   { value: 'USD', symbol: '$', tz: 'America/New_York', locale: 'en-US' },
@@ -32,8 +32,8 @@ export default function CreateOrganization() {
   const [orgName, setOrgName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [ownerName, setOwnerName] = useState('')
-  const [plan, setPlan] = useState('growth')
-  const [status, setStatus] = useState('trial')
+  const [plan, setPlan] = useState('free')
+  const [status, setStatus] = useState('active')
   const [currency, setCurrency] = useState('USD')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -81,7 +81,7 @@ export default function CreateOrganization() {
   function resetForm() {
     setResult(null)
     setOrgName(''); setOwnerEmail(''); setOwnerName(''); setMessage('')
-    setPlan('growth'); setStatus('trial'); setCurrency('USD')
+    setPlan('free'); setStatus('active'); setCurrency('USD')
   }
 
   // ---- Success state ----
