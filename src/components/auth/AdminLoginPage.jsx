@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Loader2 } from 'lucide-react'
+import { Lock, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../../services/supabase'
 
 // Inline Google "G" mark — no extra dep, official 4-color glyph.
@@ -20,6 +20,8 @@ export default function AdminLoginPage({ auth }) {
   const [submitting, setSubmitting] = useState(false)
   const [oauthSubmitting, setOauthSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [mode, setMode] = useState('signin') // 'signin' | 'forgot'
+  const [resetSent, setResetSent] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,6 +30,19 @@ export default function AdminLoginPage({ auth }) {
     const { error } = await auth.signIn({ email, password })
     setSubmitting(false)
     if (error) setFormError(error.message || 'Sign-in failed')
+  }
+
+  const handleForgot = async (e) => {
+    e.preventDefault()
+    setFormError(null)
+    if (!email) { setFormError('Enter your email first'); return }
+    setSubmitting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/auth/reset',
+    })
+    setSubmitting(false)
+    if (error) setFormError(error.message || 'Could not send the reset email')
+    else setResetSent(true)
   }
 
   const handleGoogle = async () => {
@@ -64,77 +79,135 @@ export default function AdminLoginPage({ auth }) {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur p-6 shadow-2xl shadow-indigo-950/40">
           <div className="flex items-center gap-2 mb-5">
             <Lock className="w-4 h-4 text-indigo-400" />
-            <h1 className="text-base font-medium text-slate-100">Staff sign in</h1>
+            <h1 className="text-base font-medium text-slate-100">
+              {mode === 'forgot' ? 'Reset your password' : 'Staff sign in'}
+            </h1>
           </div>
 
-          {/* Google OAuth */}
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={oauthSubmitting || submitting}
-            className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 font-medium transition disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-black/20"
-          >
-            {oauthSubmitting
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <GoogleIcon className="w-4 h-4" />
-            }
-            <span className="text-sm">Continue with Google</span>
-          </button>
-
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <div className="flex-1 h-px bg-slate-800" />
-            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-600">or</span>
-            <div className="flex-1 h-px bg-slate-800" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
-                placeholder="you@orinsuite.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {formError && (
-              <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-                {formError}
+          {mode === 'forgot' ? (
+            resetSent ? (
+              <div className="py-4 text-center space-y-3">
+                <CheckCircle2 className="w-9 h-9 text-emerald-400 mx-auto" />
+                <p className="text-sm text-slate-200">Check your email</p>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  If an account exists for <span className="text-slate-300">{email}</span>, we&apos;ve sent a link to set a new password.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setResetSent(false); setFormError(null) }}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  Back to sign in
+                </button>
               </div>
-            )}
+            ) : (
+              <form onSubmit={handleForgot} className="space-y-4">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Enter your staff email and we&apos;ll send you a link to set a new password.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+                  <input
+                    type="email" required autoComplete="email" value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
+                    placeholder="you@orinsuite.com"
+                  />
+                </div>
+                {formError && (
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{formError}</div>
+                )}
+                <button
+                  type="submit" disabled={submitting}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white font-medium transition disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/40"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Send reset link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setFormError(null) }}
+                  className="w-full text-center text-[11px] text-slate-500 hover:text-slate-300 transition"
+                >
+                  Back to sign in
+                </button>
+              </form>
+            )
+          ) : (
+            <>
+              {/* Google OAuth */}
+              <button
+                type="button"
+                onClick={handleGoogle}
+                disabled={oauthSubmitting || submitting}
+                className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 font-medium transition disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-black/20"
+              >
+                {oauthSubmitting
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <GoogleIcon className="w-4 h-4" />
+                }
+                <span className="text-sm">Continue with Google</span>
+              </button>
 
-            <button
-              type="submit"
-              disabled={submitting || oauthSubmitting}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white font-medium transition disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/40"
-            >
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Sign in
-            </button>
-          </form>
+              {/* Divider */}
+              <div className="my-5 flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-800" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-600">or</span>
+                <div className="flex-1 h-px bg-slate-800" />
+              </div>
 
-          <p className="mt-5 text-[11px] text-slate-500 text-center leading-relaxed">
-            Access is restricted to Orin staff. Sign in with the email associated with
-            your super-admin account.
-          </p>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+                  <input
+                    type="email" required autoComplete="email" value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
+                    placeholder="you@orinsuite.com"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-medium text-slate-400">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setFormError(null) }}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 transition"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <input
+                    type="password" required autoComplete="current-password" value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 placeholder-slate-600 outline-none transition"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                {formError && (
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                    {formError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting || oauthSubmitting}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white font-medium transition disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/40"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Sign in
+                </button>
+              </form>
+
+              <p className="mt-5 text-[11px] text-slate-500 text-center leading-relaxed">
+                Access is restricted to Orin staff. Sign in with the email associated with
+                your super-admin account.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

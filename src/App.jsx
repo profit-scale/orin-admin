@@ -14,6 +14,7 @@ import Perf from './pages/Perf'
 import AI from './pages/AI'
 import AIUsage from './pages/AIUsage'
 import AdminAuthCallback from './pages/AdminAuthCallback'
+import AdminResetPassword from './pages/AdminResetPassword'
 import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from './components/ui/Toast'
 import CommandPalette from './components/CommandPalette'
@@ -257,6 +258,9 @@ export default function App() {
         {/* Public: OAuth callback. Must live OUTSIDE AdminGate so the
             unauthenticated round-trip from Google can complete. */}
         <Route path="/auth/callback" element={<AdminAuthCallback />} />
+        {/* Public: password-recovery landing (from the reset email). Must live
+            OUTSIDE AdminGate so a locked-out admin can set a new password. */}
+        <Route path="/auth/reset" element={<AdminResetPassword />} />
 
         <Route
           path="/login"
